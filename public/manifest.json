@@ -1,0 +1,13 @@
+{
+  "short_name": "psst",
+  "name": "psst",
+  "icons": [
+    {
+      "src": "/tux.png",
+      "type": "image/png",
+      "sizes": "144x144"
+    }
+  ],
+  "start_url": "/index.html",
+  "display": "fullscreen"
+}

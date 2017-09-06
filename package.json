@@ -1,0 +1,22 @@
+{
+  "name": "psst",
+  "scripts": {
+    "build": "NODE_ENV=production webpack",
+    "watch": "webpack-dev-server"
+  },
+  "author": "ronanyeah",
+  "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ronanyeah/psst.git"
+  },
+  "dependencies": {
+    "elm-webpack-loader": "^4.3.1",
+    "webpack": "^3.5.5"
+  },
+  "devDependencies": {
+    "dotenv": "^4.0.0",
+    "puppeteer": "^0.10.1",
+    "webpack-dev-server": "^2.7.1"
+  }
+}
