@@ -4,52 +4,75 @@ if (navigator.serviceWorker) {
   .catch(alert)
 }
 
+var crypto = window.crypto.subtle
+
 var Elm = require('./Main.elm')
-var storedState = localStorage.getItem('tux-model')
 
-var startingState = (function () {
-  try {
-    return JSON.parse(storedState)
-  } catch (e) {
-    return {}
-  }
-})()
+// String -> ArrayBuffer
+const stringToArrayBuffer = string =>
+  new Uint8Array(
+    string.split('')
+    .map( x => x.charCodeAt(0) )
+  )
 
-var app = Elm.Main.fullscreen(startingState)
+// ArrayBuffer -> String
+const arrayBufferToText = buffer =>
+  new Uint8Array(buffer).reduce(
+    (acc, val) =>
+      acc + String.fromCharCode(val),
+    ''
+  )
 
-// PUSH SUBSCRIBE
-app.ports.pushSubscribe.subscribe(function (key) {
-  return navigator.serviceWorker.ready
-    .then(function (reg) {
-      return reg.pushManager.subscribe(
-        {
-          userVisibleOnly: true,
-          applicationServerKey: new Uint8Array(key)
-        }
+crypto.generateKey(
+  {
+    name: 'RSA-OAEP',
+    modulusLength: 2048,
+    publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+    hash: 'SHA-256'
+  },
+  true,
+  ['encrypt', 'decrypt']
+)
+.then(({ publicKey, privateKey }) => {
+  crypto.exportKey('jwk', publicKey)
+  .then( jwk => {
+
+    var roomId = new URLSearchParams(window.location.search).get('room-id')
+
+    var app = Elm.Main.fullscreen([jwk, roomId])
+
+    app.ports.decrypt.subscribe(function (encryptedText) {
+      crypto.decrypt(
+        { name: 'RSA-OAEP' },
+        privateKey,
+        stringToArrayBuffer(encryptedText)
       )
+      .then(
+        buffer =>
+          decodeURI(arrayBufferToText(buffer))
+      )
+      .then(
+        encryptedText =>
+          app.ports.cbDecrypt.send(plaintext)
+      )
+      .catch(console.error)
     })
-    .then(function (subscription) {
-      return app.ports.pushSubscription.send(subscription.toJSON())
-    })
-    .catch(alert)
-})
 
-// PUSH UNSUBSCRIBE
-app.ports.pushUnsubscribe.subscribe(function () {
-  return navigator.serviceWorker.ready
-    .then(function (reg) {
-      return reg.pushManager.getSubscription()
+    app.ports.encrypt.subscribe(function (plaintext) {
+      crypto.encrypt(
+        { name: 'RSA-OAEP' },
+        publicKey,
+        stringToArrayBuffer(encodeURI(plaintext))
+      )
+      .then(arrayBufferToText)
+      .then(
+        encryptedText =>
+          app.ports.cbEncrypt.send(encryptedText)
+      )
+      .catch(console.error)
     })
-    .then(function (subscription) {
-      return subscription.unsubscribe()
-    })
-    .then(function () {
-      return app.ports.pushSubscription.send(null)
-    })
-    .catch(alert)
-})
 
-// SAVE STATE
-app.ports.setStorage.subscribe(function (state) {
-  return localStorage.setItem('tux-model', JSON.stringify(state))
+  })
+  .catch(console.error)
 })
+.catch(console.error)
