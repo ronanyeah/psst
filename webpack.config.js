@@ -1,5 +1,5 @@
 const webpack = require('webpack')
-const { resolve } = require( 'path' )
+const {resolve} = require( 'path' )
 
 const PROD = process.env.NODE_ENV === 'production'
 
