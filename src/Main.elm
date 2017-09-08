@@ -6,8 +6,9 @@ import Element.Attributes exposing (center, height, verticalCenter, width, perce
 import Element.Events exposing (onClick)
 import Element.Input as Input
 import Html exposing (Html)
-import Json.Decode as Decode exposing (Decoder, field, list, bool, map2, map6, map, string, decodeValue)
+import Json.Decode as Decode exposing (Decoder, andThen, fail, field, list, bool, map2, map6, map, string, decodeValue, succeed)
 import Json.Encode as Encode exposing (Value)
+import Navigation exposing (newUrl)
 import Style exposing (StyleSheet, style, styleSheet)
 import Style.Color as Color
 import Style.Border as Border
@@ -57,12 +58,12 @@ port cbEncrypt : (String -> msg) -> Sub msg
 -- MODEL
 
 
-type PublicKey
-    = PublicKey PublicKeyRecord String
+type PublicKeyString
+    = PublicKeyString String
 
 
-type PairId
-    = PairId String
+type ConnId
+    = ConnId String
 
 
 type RoomId
@@ -70,10 +71,11 @@ type RoomId
 
 
 type Status
-    = PreInit PublicKey
-    | WaitingForB PublicKey String String
-    | Swapping String
-    | Ready String PublicKey
+    = Start PublicKeyRecord
+    | WaitingForBKey PublicKeyRecord ConnId RoomId
+    | Joining PublicKeyRecord
+    | WaitingForAKey ConnId
+    | Ready ConnId PublicKeyString
 
 
 type alias Model =
@@ -95,11 +97,12 @@ type alias PublicKeyRecord =
 
 
 type SocketText
-    = Waiting String String
+    = Waiting ConnId RoomId
     | Message String
     | Error String
-    | Start String
+    | ReceiveAId ConnId
     | Key PublicKeyRecord
+    | RoomUnavailable
 
 
 
@@ -109,7 +112,7 @@ type SocketText
 init : ( Value, Maybe String, String ) -> ( Model, Cmd Msg )
 init ( jwk, maybeRoomId, url ) =
     let
-        publicKeyRecord =
+        myPublicKey =
             jwk
                 |> decodeValue decodePublicKey
                 -- TODO Fail the app startup if this doesn't succeed
@@ -122,24 +125,21 @@ init ( jwk, maybeRoomId, url ) =
                     , n = ""
                     }
 
-        pkString =
-            encodePublicKey publicKeyRecord
-                |> Encode.encode 0
-
-        cmd =
+        ( status, cmd ) =
             case maybeRoomId of
                 Just id ->
                     let
-                        json =
+                        roomJoinRequest =
                             Encode.object [ ( "roomId", Encode.string id ) ]
                                 |> Encode.encode 0
+                                |> WebSocket.send url
                     in
-                        WebSocket.send url json
+                        ( Joining myPublicKey, roomJoinRequest )
 
                 Nothing ->
-                    Cmd.none
+                    ( Start myPublicKey, Cmd.none )
     in
-        { status = PreInit (PublicKey publicKeyRecord pkString)
+        { status = status
         , input = ""
         , messages = []
         , wsApi = url
@@ -181,15 +181,15 @@ update msg model =
 
         Send ->
             case model.status of
-                Ready _ (PublicKey _ k) ->
-                    model ! [ encrypt ( model.input, k ) ]
+                Ready _ (PublicKeyString key) ->
+                    model ! [ encrypt ( model.input, key ) ]
 
                 a ->
                     model ! [ log "send, oops" a ]
 
         CbEncrypt txt ->
             case model.status of
-                Ready id _ ->
+                Ready (ConnId id) _ ->
                     let
                         json =
                             Encode.object
@@ -213,8 +213,8 @@ update msg model =
                     case socketMsg of
                         Waiting bId room ->
                             case model.status of
-                                PreInit pk ->
-                                    { model | status = WaitingForB pk bId room } ! []
+                                Start pk ->
+                                    { model | status = WaitingForBKey pk bId room } ! []
 
                                 a ->
                                     model ! [ log "waiting, oops" a ]
@@ -225,21 +225,27 @@ update msg model =
                         Error err ->
                             model ! [ log "socket server error" err ]
 
-                        Start id ->
+                        RoomUnavailable ->
                             case model.status of
-                                PreInit (PublicKey mPk _) ->
-                                    let
-                                        pk =
-                                            encodePublicKey mPk
+                                Joining myPublicKey ->
+                                    { model | status = Start myPublicKey }
+                                        ! [ log "room unavailable" 0, newUrl "/" ]
 
+                                a ->
+                                    model ! [ log "room unavailable, oops" a ]
+
+                        ReceiveAId (ConnId id) ->
+                            case model.status of
+                                Joining myPublicKey ->
+                                    let
                                         json =
                                             Encode.object
                                                 [ ( "conn", Encode.string id )
-                                                , ( "key", pk )
+                                                , ( "key", encodePublicKey myPublicKey )
                                                 ]
                                                 |> Encode.encode 0
                                     in
-                                        { model | status = Swapping id }
+                                        { model | status = WaitingForAKey (ConnId id) }
                                             ! [ WebSocket.send model.wsApi json ]
 
                                 a ->
@@ -247,37 +253,34 @@ update msg model =
 
                         Key k ->
                             case model.status of
-                                WaitingForB (PublicKey mPk _) id _ ->
+                                WaitingForBKey myPublicKey (ConnId id) _ ->
                                     let
-                                        pk =
-                                            encodePublicKey mPk
-
                                         json =
                                             Encode.object
                                                 [ ( "conn", Encode.string id )
-                                                , ( "key", pk )
+                                                , ( "key", encodePublicKey myPublicKey )
                                                 ]
                                                 |> Encode.encode 0
 
-                                        tPk =
+                                        theirPk =
                                             encodePublicKey k
                                                 |> Encode.encode 0
                                     in
                                         { model
-                                            | status = Ready id (PublicKey k tPk)
+                                            | status = Ready (ConnId id) (PublicKeyString theirPk)
                                         }
                                             ! [ WebSocket.send model.wsApi json ]
 
-                                Swapping id ->
+                                WaitingForAKey id ->
                                     let
-                                        tPk =
+                                        theirPk =
                                             encodePublicKey k
                                                 |> Encode.encode 0
                                     in
-                                        { model | status = Ready id (PublicKey k tPk) } ! []
+                                        { model | status = Ready id (PublicKeyString theirPk) } ! []
 
                                 a ->
-                                    model ! [ log "oops" a ]
+                                    model ! [ log "key swap, oops" a ]
 
                 Err err ->
                     model ! [ log "socket message error" err ]
@@ -308,11 +311,13 @@ view model =
         column None
             [ center, verticalCenter, width <| percent 100, height <| percent 100 ]
             [ case model.status of
-                WaitingForB _ _ room ->
-                    --newTab ("http://localhost:8080/?room-id=" ++ id) <| text "Share this link"
-                    text ("http://localhost:8080/?room-id=" ++ room)
+                WaitingForBKey _ _ (RoomId roomId) ->
+                    text ("http://localhost:8080/?room-id=" ++ roomId)
 
-                Swapping _ ->
+                WaitingForAKey _ ->
+                    text "spinner"
+
+                Joining _ ->
                     text "spinner"
 
                 Ready _ _ ->
@@ -330,7 +335,7 @@ view model =
                                ]
                         )
 
-                PreInit _ ->
+                Start _ ->
                     circle 50
                         StartCircle
                         [ onClick Init, center, verticalCenter ]
@@ -389,14 +394,15 @@ decodeSocketText =
         , decodeStart
         , decodeError
         , decodeKey
+        , decodeEnum
         ]
 
 
 decodeWaiting : Decoder SocketText
 decodeWaiting =
     map2 Waiting
-        (field "id" string)
-        (field "room" string)
+        (field "id" (map ConnId string))
+        (field "room" (map RoomId string))
 
 
 decodeMessage : Decoder SocketText
@@ -407,8 +413,8 @@ decodeMessage =
 
 decodeStart : Decoder SocketText
 decodeStart =
-    map Start
-        (field "start" string)
+    map ReceiveAId
+        (field "start" (map ConnId string))
 
 
 decodeError : Decoder SocketText
@@ -421,3 +427,17 @@ decodeKey : Decoder SocketText
 decodeKey =
     map Key
         (field "publicKey" decodePublicKey)
+
+
+decodeEnum : Decoder SocketText
+decodeEnum =
+    string
+        |> andThen
+            (\str ->
+                case str of
+                    "ROOM_UNAVAILABLE" ->
+                        succeed RoomUnavailable
+
+                    a ->
+                        fail ("enum: \"" ++ a ++ "\" not recognised")
+            )
