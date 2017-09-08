@@ -1,12 +1,12 @@
 port module Main exposing (main)
 
 import Color exposing (black, grey)
-import Element exposing (Attribute, button, circle, column, el, newTab, link, text, viewport)
+import Element exposing (button, circle, column, el, text, viewport)
 import Element.Attributes exposing (center, height, verticalCenter, width, percent)
-import Element.Events exposing (keyCode, on, onClick)
+import Element.Events exposing (onClick)
 import Element.Input as Input
 import Html exposing (Html)
-import Json.Decode as Decode exposing (Decoder, andThen, fail, field, list, bool, map2, map6, map, string, decodeValue, succeed)
+import Json.Decode as Decode exposing (Decoder, field, list, bool, map2, map6, map, string, decodeValue)
 import Json.Encode as Encode exposing (Value)
 import Style exposing (StyleSheet, style, styleSheet)
 import Style.Color as Color
@@ -294,7 +294,7 @@ view model =
                 Ready _ ->
                     column None
                         []
-                        ((List.map (\x -> el None [] <| text x) model.messages)
+                        (List.map (\x -> el None [] <| text x) model.messages
                             ++ [ Input.text None
                                     []
                                     { onChange = InputChange
@@ -319,18 +319,6 @@ view model =
 
 
 -- HELPERS
-
-
-onKeyDown : (Int -> msg) -> Attribute variation msg
-onKeyDown tagger =
-    on "keyup" (map tagger keyCode)
-
-
-
--- COMMANDS
---focusOn : String -> Cmd Msg
---focusOn =
---Dom.focus >> Task.attempt FocusCb
 
 
 log : String -> a -> Cmd Msg
