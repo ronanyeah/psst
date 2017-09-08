@@ -4,6 +4,8 @@ if (navigator.serviceWorker) {
   .catch(console.error)
 }
 
+var clipboard = new Clipboard('.copy-button')
+
 var crypto = window.crypto.subtle
 
 var Elm = require('./Main.elm')

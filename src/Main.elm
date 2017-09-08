@@ -2,7 +2,7 @@ port module Main exposing (main)
 
 import Color exposing (black, grey)
 import Element exposing (button, circle, column, el, text, viewport)
-import Element.Attributes exposing (center, height, verticalCenter, width, percent)
+import Element.Attributes exposing (attribute, center, class, height, verticalCenter, width, percent)
 import Element.Events exposing (onClick)
 import Element.Input as Input
 import Html exposing (Html)
@@ -312,7 +312,13 @@ view model =
             [ center, verticalCenter, width <| percent 100, height <| percent 100 ]
             [ case model.status of
                 WaitingForBKey _ _ (RoomId roomId) ->
-                    text ("http://localhost:8080/?room-id=" ++ roomId)
+                    column None
+                        []
+                        [ el None [] <| text "Share this link with someone to begin chat:"
+                        , el None [] <| text ("\"http://localhost:8080/?room-id=" ++ roomId ++ "\"")
+                        , button None [ class "copy-button", attribute "data-clipboard-text" ("http://localhost:8080/?room-id=" ++ roomId) ] <|
+                            text "Copy to clipboard"
+                        ]
 
                 WaitingForAKey _ ->
                     text "spinner"
