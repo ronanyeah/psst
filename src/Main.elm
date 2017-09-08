@@ -57,24 +57,34 @@ port cbEncrypt : (String -> msg) -> Sub msg
 -- MODEL
 
 
+type PublicKey
+    = PublicKey PublicKeyRecord String
+
+
+type PairId
+    = PairId String
+
+
+type RoomId
+    = RoomId String
+
+
 type Status
-    = PreInit
-    | WaitingForB String String
+    = PreInit PublicKey
+    | WaitingForB PublicKey String String
     | Swapping String
-    | Ready String
+    | Ready String PublicKey
 
 
 type alias Model =
-    { myPublicKey : PublicKey
-    , status : Status
-    , theirPublicKey : Maybe String
+    { status : Status
     , messages : List String
     , input : String
     , wsApi : String
     }
 
 
-type alias PublicKey =
+type alias PublicKeyRecord =
     { alg : String
     , e : String
     , ext : Bool
@@ -89,7 +99,7 @@ type SocketText
     | Message String
     | Error String
     | Start String
-    | Key PublicKey
+    | Key PublicKeyRecord
 
 
 
@@ -99,7 +109,7 @@ type SocketText
 init : ( Value, Maybe String, String ) -> ( Model, Cmd Msg )
 init ( jwk, maybeRoomId, url ) =
     let
-        publicKey =
+        publicKeyRecord =
             jwk
                 |> decodeValue decodePublicKey
                 -- TODO Fail the app startup if this doesn't succeed
@@ -111,6 +121,10 @@ init ( jwk, maybeRoomId, url ) =
                     , kty = ""
                     , n = ""
                     }
+
+        pkString =
+            encodePublicKey publicKeyRecord
+                |> Encode.encode 0
 
         cmd =
             case maybeRoomId of
@@ -125,9 +139,7 @@ init ( jwk, maybeRoomId, url ) =
                 Nothing ->
                     Cmd.none
     in
-        { myPublicKey = publicKey
-        , status = PreInit
-        , theirPublicKey = Nothing
+        { status = PreInit (PublicKey publicKeyRecord pkString)
         , input = ""
         , messages = []
         , wsApi = url
@@ -168,16 +180,16 @@ update msg model =
             { model | input = str } ! []
 
         Send ->
-            case model.theirPublicKey of
-                Just k ->
+            case model.status of
+                Ready _ (PublicKey _ k) ->
                     model ! [ encrypt ( model.input, k ) ]
 
-                Nothing ->
-                    model ! []
+                a ->
+                    model ! [ log "send, oops" a ]
 
         CbEncrypt txt ->
             case model.status of
-                Ready id ->
+                Ready id _ ->
                     let
                         json =
                             Encode.object
@@ -189,8 +201,8 @@ update msg model =
                         { model | input = "" }
                             ! [ WebSocket.send model.wsApi json ]
 
-                _ ->
-                    model ! []
+                a ->
+                    model ! [ log "cbEncrypt, oops" a ]
 
         CbDecrypt txt ->
             { model | messages = txt :: model.messages } ! []
@@ -200,7 +212,12 @@ update msg model =
                 Ok socketMsg ->
                     case socketMsg of
                         Waiting bId room ->
-                            { model | status = WaitingForB bId room } ! []
+                            case model.status of
+                                PreInit pk ->
+                                    { model | status = WaitingForB pk bId room } ! []
+
+                                a ->
+                                    model ! [ log "waiting, oops" a ]
 
                         Message txt ->
                             model ! [ decrypt txt ]
@@ -209,26 +226,31 @@ update msg model =
                             model ! [ log "socket server error" err ]
 
                         Start id ->
-                            let
-                                pk =
-                                    encodePublicKey model.myPublicKey
+                            case model.status of
+                                PreInit (PublicKey mPk _) ->
+                                    let
+                                        pk =
+                                            encodePublicKey mPk
 
-                                json =
-                                    Encode.object
-                                        [ ( "conn", Encode.string id )
-                                        , ( "key", pk )
-                                        ]
-                                        |> Encode.encode 0
-                            in
-                                { model | status = Swapping id }
-                                    ! [ WebSocket.send model.wsApi json ]
+                                        json =
+                                            Encode.object
+                                                [ ( "conn", Encode.string id )
+                                                , ( "key", pk )
+                                                ]
+                                                |> Encode.encode 0
+                                    in
+                                        { model | status = Swapping id }
+                                            ! [ WebSocket.send model.wsApi json ]
+
+                                a ->
+                                    model ! [ log "start, oops" a ]
 
                         Key k ->
                             case model.status of
-                                WaitingForB id _ ->
+                                WaitingForB (PublicKey mPk _) id _ ->
                                     let
                                         pk =
-                                            encodePublicKey model.myPublicKey
+                                            encodePublicKey mPk
 
                                         json =
                                             Encode.object
@@ -241,7 +263,9 @@ update msg model =
                                             encodePublicKey k
                                                 |> Encode.encode 0
                                     in
-                                        { model | theirPublicKey = Just tPk, status = Ready id }
+                                        { model
+                                            | status = Ready id (PublicKey k tPk)
+                                        }
                                             ! [ WebSocket.send model.wsApi json ]
 
                                 Swapping id ->
@@ -250,7 +274,7 @@ update msg model =
                                             encodePublicKey k
                                                 |> Encode.encode 0
                                     in
-                                        { model | theirPublicKey = Just tPk, status = Ready id } ! []
+                                        { model | status = Ready id (PublicKey k tPk) } ! []
 
                                 a ->
                                     model ! [ log "oops" a ]
@@ -284,14 +308,14 @@ view model =
         column None
             [ center, verticalCenter, width <| percent 100, height <| percent 100 ]
             [ case model.status of
-                WaitingForB _ room ->
+                WaitingForB _ _ room ->
                     --newTab ("http://localhost:8080/?room-id=" ++ id) <| text "Share this link"
                     text ("http://localhost:8080/?room-id=" ++ room)
 
                 Swapping _ ->
                     text "spinner"
 
-                Ready _ ->
+                Ready _ _ ->
                     column None
                         []
                         (List.map (\x -> el None [] <| text x) model.messages
@@ -306,7 +330,7 @@ view model =
                                ]
                         )
 
-                PreInit ->
+                PreInit _ ->
                     circle 50
                         StartCircle
                         [ onClick Init, center, verticalCenter ]
@@ -334,7 +358,7 @@ log tag a =
 -- ENCODERS & DECODERS
 
 
-encodePublicKey : PublicKey -> Value
+encodePublicKey : PublicKeyRecord -> Value
 encodePublicKey { alg, e, ext, key_ops, kty, n } =
     Encode.object
         [ ( "alg", Encode.string alg )
@@ -346,9 +370,9 @@ encodePublicKey { alg, e, ext, key_ops, kty, n } =
         ]
 
 
-decodePublicKey : Decoder PublicKey
+decodePublicKey : Decoder PublicKeyRecord
 decodePublicKey =
-    map6 PublicKey
+    map6 PublicKeyRecord
         (field "alg" string)
         (field "e" string)
         (field "ext" bool)
