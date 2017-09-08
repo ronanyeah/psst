@@ -59,10 +59,13 @@ crypto.generateKey(
       .catch(console.error)
     })
 
-    app.ports.encrypt.subscribe(function ([plaintext, pk]) {
+    app.ports.encrypt.subscribe(function (args) {
+      var plaintext = args[0]
+      var publicKeyString = args[1]
+
       return crypto.importKey(
         'jwk',
-        JSON.parse(pk),
+        JSON.parse(publicKeyString),
         { name: 'RSA-OAEP', hash: 'SHA-256' },
         true,
         ['encrypt']
