@@ -1,7 +1,7 @@
 if (navigator.serviceWorker) {
   navigator.serviceWorker.register('/sw.js')
   .then(console.log)
-  .catch(alert)
+  .catch(console.error)
 }
 
 var crypto = window.crypto.subtle
@@ -9,19 +9,22 @@ var crypto = window.crypto.subtle
 var Elm = require('./Main.elm')
 
 // String -> ArrayBuffer
-const stringToArrayBuffer = string =>
-  new Uint8Array(
+function stringToArrayBuffer (string) {
+  return new Uint8Array(
     string.split('')
-    .map( x => x.charCodeAt(0) )
+    .map(function (x) { return x.charCodeAt(0) })
   )
+}
 
 // ArrayBuffer -> String
-const arrayBufferToText = buffer =>
-  new Uint8Array(buffer).reduce(
-    (acc, val) =>
-      acc + String.fromCharCode(val),
+function arrayBufferToText (buffer) {
+  return new Uint8Array(buffer).reduce(
+    function (acc, val) {
+      return acc + String.fromCharCode(val)
+    },
     ''
   )
+}
 
 crypto.generateKey(
   {
@@ -33,46 +36,51 @@ crypto.generateKey(
   true,
   ['encrypt', 'decrypt']
 )
-.then(({ publicKey, privateKey }) => {
-  crypto.exportKey('jwk', publicKey)
-  .then( jwk => {
+.then(function (keys) {
+  return crypto.exportKey('jwk', keys.publicKey)
+  .then(function (jwk) {
 
     var roomId = new URLSearchParams(window.location.search).get('room-id')
 
-    var app = Elm.Main.fullscreen([jwk, roomId])
+    var app = Elm.Main.fullscreen([jwk, roomId, WS_API])
 
     app.ports.decrypt.subscribe(function (encryptedText) {
-      crypto.decrypt(
+      return crypto.decrypt(
         { name: 'RSA-OAEP' },
-        privateKey,
+        keys.privateKey,
         stringToArrayBuffer(encryptedText)
       )
-      .then(
-        buffer =>
-          decodeURI(arrayBufferToText(buffer))
-      )
-      .then(
-        encryptedText =>
-          app.ports.cbDecrypt.send(plaintext)
-      )
+      .then(function (buffer) {
+        return decodeURI(arrayBufferToText(buffer))
+      })
+      .then(function (plaintext) {
+        return app.ports.cbDecrypt.send(plaintext)
+      })
       .catch(console.error)
     })
 
-    app.ports.encrypt.subscribe(function (plaintext) {
-      crypto.encrypt(
-        { name: 'RSA-OAEP' },
-        publicKey,
-        stringToArrayBuffer(encodeURI(plaintext))
+    app.ports.encrypt.subscribe(function ([plaintext, pk]) {
+      return crypto.importKey(
+        'jwk',
+        JSON.parse(pk),
+        { name: 'RSA-OAEP', hash: 'SHA-256' },
+        true,
+        ['encrypt']
       )
+      .then(function (publicKey) {
+        return crypto.encrypt(
+          { name: 'RSA-OAEP' },
+          publicKey,
+          stringToArrayBuffer(encodeURI(plaintext))
+        )
+      })
       .then(arrayBufferToText)
-      .then(
-        encryptedText =>
-          app.ports.cbEncrypt.send(encryptedText)
-      )
+      .then(function (encryptedText) {
+        return app.ports.cbEncrypt.send(encryptedText)
+      })
       .catch(console.error)
     })
 
   })
-  .catch(console.error)
 })
 .catch(console.error)

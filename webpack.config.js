@@ -3,6 +3,10 @@ const { resolve } = require( 'path' )
 
 const PROD = process.env.NODE_ENV === 'production'
 
+if (!PROD) {
+  require('dotenv').config()
+}
+
 module.exports = {
   entry: './src/index.js',
   output: {
@@ -26,8 +30,12 @@ module.exports = {
       }
     }]
   },
-  plugins:
-    PROD
+  plugins: [
+    new webpack.DefinePlugin({
+      WS_API: JSON.stringify(process.env.WS_API || 'ws://localhost:3000')
+    }),
+    ...PROD
       ? [ new webpack.optimize.UglifyJsPlugin() ]
       : []
+  ]
 }

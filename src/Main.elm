@@ -1,20 +1,20 @@
 port module Main exposing (main)
 
 import Color exposing (black, grey)
-import Element exposing (Attribute, circle, column, el, link, text, viewport)
-import Element.Attributes exposing (center, target, verticalCenter)
+import Element exposing (Attribute, button, circle, column, el, newTab, link, text, viewport)
+import Element.Attributes exposing (center, height, verticalCenter, width, percent)
 import Element.Events exposing (keyCode, on, onClick)
+import Element.Input as Input
 import Html exposing (Html)
-import Http
-import Json.Decode exposing (Decoder, field, list, string, bool, map6, map, decodeValue)
-import Json.Encode exposing (Value)
-import Style exposing (StyleSheet, style, stylesheet)
+import Json.Decode as Decode exposing (Decoder, andThen, fail, field, list, bool, map2, map6, map, string, decodeValue, succeed)
+import Json.Encode as Encode exposing (Value)
+import Style exposing (StyleSheet, style, styleSheet)
 import Style.Color as Color
 import Style.Border as Border
 import WebSocket
 
 
-main : Program ( Value, Maybe String ) Model Msg
+main : Program ( Value, Maybe String, String ) Model Msg
 main =
     Html.programWithFlags
         { init = init
@@ -29,8 +29,12 @@ main =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-    WebSocket.listen "ws://psst-api.glitch.me" Echo
+subscriptions { wsApi } =
+    Sub.batch
+        [ WebSocket.listen wsApi CbWebsocketMessage
+        , cbEncrypt CbEncrypt
+        , cbDecrypt CbDecrypt
+        ]
 
 
 
@@ -40,7 +44,7 @@ subscriptions _ =
 port decrypt : String -> Cmd msg
 
 
-port encrypt : String -> Cmd msg
+port encrypt : ( String, String ) -> Cmd msg
 
 
 port cbDecrypt : (String -> msg) -> Sub msg
@@ -53,9 +57,20 @@ port cbEncrypt : (String -> msg) -> Sub msg
 -- MODEL
 
 
+type Status
+    = PreInit
+    | WaitingForB String String
+    | Swapping String
+    | Ready String
+
+
 type alias Model =
-    { publicKey : PublicKey
-    , room : Maybe String
+    { myPublicKey : PublicKey
+    , status : Status
+    , theirPublicKey : Maybe String
+    , messages : List String
+    , input : String
+    , wsApi : String
     }
 
 
@@ -69,27 +84,25 @@ type alias PublicKey =
     }
 
 
-publicKeyDecoder : Decoder PublicKey
-publicKeyDecoder =
-    map6 PublicKey
-        (field "alg" string)
-        (field "e" string)
-        (field "ext" bool)
-        (field "key_ops" (list string))
-        (field "kty" string)
-        (field "n" string)
+type SocketText
+    = Waiting String String
+    | Message String
+    | Error String
+    | Start String
+    | Key PublicKey
 
 
 
 -- INIT
 
 
-init : ( Value, Maybe String ) -> ( Model, Cmd Msg )
-init ( jwk, maybeRoomId ) =
+init : ( Value, Maybe String, String ) -> ( Model, Cmd Msg )
+init ( jwk, maybeRoomId, url ) =
     let
         publicKey =
             jwk
-                |> decodeValue publicKeyDecoder
+                |> decodeValue decodePublicKey
+                -- TODO Fail the app startup if this doesn't succeed
                 |> Result.withDefault
                     { alg = ""
                     , e = ""
@@ -102,13 +115,24 @@ init ( jwk, maybeRoomId ) =
         cmd =
             case maybeRoomId of
                 Just id ->
-                    Http.get ("https://psst-api.glitch.me/room/" ++ id) (field "ready" bool)
-                        |> Http.send RoomReady
+                    let
+                        json =
+                            Encode.object [ ( "roomId", Encode.string id ) ]
+                                |> Encode.encode 0
+                    in
+                        WebSocket.send url json
 
                 Nothing ->
                     Cmd.none
     in
-        { publicKey = publicKey, room = maybeRoomId } ! [ cmd, WebSocket.send "ws://psst-api.glitch.me" "lol" ]
+        { myPublicKey = publicKey
+        , status = PreInit
+        , theirPublicKey = Nothing
+        , input = ""
+        , messages = []
+        , wsApi = url
+        }
+            ! [ cmd ]
 
 
 
@@ -116,10 +140,12 @@ init ( jwk, maybeRoomId ) =
 
 
 type Msg
-    = NewRoom (Result Http.Error String)
-    | RoomReady (Result Http.Error Bool)
-    | Click
-    | Echo String
+    = Init
+    | CbWebsocketMessage String
+    | InputChange String
+    | Send
+    | CbEncrypt String
+    | CbDecrypt String
 
 
 
@@ -129,31 +155,108 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        NewRoom res ->
-            case res of
-                Ok data ->
-                    --let
-                    --cmd =
-                    --if data then
-                    --in
-                    { model | room = Just data } ! [ log "room" data ]
+        Init ->
+            let
+                json =
+                    Encode.object [ ( "init", Encode.bool True ) ]
+                        |> Encode.encode 0
+            in
+                model
+                    ! [ WebSocket.send model.wsApi json ]
+
+        InputChange str ->
+            { model | input = str } ! []
+
+        Send ->
+            case model.theirPublicKey of
+                Just k ->
+                    model ! [ encrypt ( model.input, k ) ]
+
+                Nothing ->
+                    model ! []
+
+        CbEncrypt txt ->
+            case model.status of
+                Ready id ->
+                    let
+                        json =
+                            Encode.object
+                                [ ( "conn", Encode.string id )
+                                , ( "message", Encode.string txt )
+                                ]
+                                |> Encode.encode 0
+                    in
+                        { model | input = "" }
+                            ! [ WebSocket.send model.wsApi json ]
+
+                _ ->
+                    model ! []
+
+        CbDecrypt txt ->
+            { model | messages = txt :: model.messages } ! []
+
+        CbWebsocketMessage str ->
+            case Decode.decodeString decodeSocketText str of
+                Ok socketMsg ->
+                    case socketMsg of
+                        Waiting bId room ->
+                            { model | status = WaitingForB bId room } ! []
+
+                        Message txt ->
+                            model ! [ decrypt txt ]
+
+                        Error err ->
+                            model ! [ log "socket server error" err ]
+
+                        Start id ->
+                            let
+                                pk =
+                                    encodePublicKey model.myPublicKey
+
+                                json =
+                                    Encode.object
+                                        [ ( "conn", Encode.string id )
+                                        , ( "key", pk )
+                                        ]
+                                        |> Encode.encode 0
+                            in
+                                { model | status = Swapping id }
+                                    ! [ WebSocket.send model.wsApi json ]
+
+                        Key k ->
+                            case model.status of
+                                WaitingForB id _ ->
+                                    let
+                                        pk =
+                                            encodePublicKey model.myPublicKey
+
+                                        json =
+                                            Encode.object
+                                                [ ( "conn", Encode.string id )
+                                                , ( "key", pk )
+                                                ]
+                                                |> Encode.encode 0
+
+                                        tPk =
+                                            encodePublicKey k
+                                                |> Encode.encode 0
+                                    in
+                                        { model | theirPublicKey = Just tPk, status = Ready id }
+                                            ! [ WebSocket.send model.wsApi json ]
+
+                                Swapping id ->
+                                    let
+                                        tPk =
+                                            encodePublicKey k
+                                                |> Encode.encode 0
+                                    in
+                                        { model | theirPublicKey = Just tPk, status = Ready id } ! []
+
+                                a ->
+                                    model ! [ log "oops" a ]
 
                 Err err ->
-                    model ! [ log "room err" err ]
-
-        RoomReady res ->
-            case res of
-                Ok data ->
-                    model ! [ log "room" data ]
-
-                Err err ->
-                    model ! [ log "room err" err ]
-
-        Echo str ->
-            model ! [ log "echo" str ]
-
-        Click ->
-            model ! [ getRoom ]
+                    model ! [ log "socket message error" err ]
 
 
 
@@ -168,7 +271,7 @@ type Styles
 
 styling : StyleSheet Styles variation
 styling =
-    stylesheet
+    styleSheet
         [ style None []
         , style StartCircle [ Color.background grey ]
         , style Button [ Border.dashed, Color.border black ]
@@ -179,26 +282,39 @@ view : Model -> Html Msg
 view model =
     viewport styling <|
         column None
-            [ center, verticalCenter ]
-            [ case model.room of
-                Just id ->
-                    link ("http://localhost:8080/?room-id=" ++ id) <| el None [ target "_blank" ] <| text "Start!"
+            [ center, verticalCenter, width <| percent 100, height <| percent 100 ]
+            [ case model.status of
+                WaitingForB _ room ->
+                    --newTab ("http://localhost:8080/?room-id=" ++ id) <| text "Share this link"
+                    text ("http://localhost:8080/?room-id=" ++ room)
 
-                Nothing ->
+                Swapping _ ->
+                    text "spinner"
+
+                Ready _ ->
+                    column None
+                        []
+                        ((List.map (\x -> el None [] <| text x) model.messages)
+                            ++ [ Input.text None
+                                    []
+                                    { onChange = InputChange
+                                    , value = model.input
+                                    , label = Input.labelAbove <| text "say something!"
+                                    , options = []
+                                    }
+                               , button None [ onClick Send ] <| text "send"
+                               ]
+                        )
+
+                PreInit ->
                     circle 50
                         StartCircle
-                        [ onClick Click ]
+                        [ onClick Init, center, verticalCenter ]
                     <|
                         el None [ center, verticalCenter ] <|
-                            text <|
+                            text
                                 "Start"
             ]
-
-
-getRoom : Cmd Msg
-getRoom =
-    Http.get "https://psst-api.glitch.me/new" (field "room" string)
-        |> Http.send NewRoom
 
 
 
@@ -224,3 +340,72 @@ log tag a =
             Debug.log tag a
     in
         Cmd.none
+
+
+
+-- ENCODERS & DECODERS
+
+
+encodePublicKey : PublicKey -> Value
+encodePublicKey { alg, e, ext, key_ops, kty, n } =
+    Encode.object
+        [ ( "alg", Encode.string alg )
+        , ( "e", Encode.string e )
+        , ( "ext", Encode.bool ext )
+        , ( "key_ops", Encode.list <| List.map Encode.string key_ops )
+        , ( "kty", Encode.string kty )
+        , ( "n", Encode.string n )
+        ]
+
+
+decodePublicKey : Decoder PublicKey
+decodePublicKey =
+    map6 PublicKey
+        (field "alg" string)
+        (field "e" string)
+        (field "ext" bool)
+        (field "key_ops" (list string))
+        (field "kty" string)
+        (field "n" string)
+
+
+decodeSocketText : Decoder SocketText
+decodeSocketText =
+    Decode.oneOf
+        [ decodeWaiting
+        , decodeMessage
+        , decodeStart
+        , decodeError
+        , decodeKey
+        ]
+
+
+decodeWaiting : Decoder SocketText
+decodeWaiting =
+    map2 Waiting
+        (field "id" string)
+        (field "room" string)
+
+
+decodeMessage : Decoder SocketText
+decodeMessage =
+    map Message
+        (field "message" string)
+
+
+decodeStart : Decoder SocketText
+decodeStart =
+    map Start
+        (field "start" string)
+
+
+decodeError : Decoder SocketText
+decodeError =
+    map Error
+        (field "error" string)
+
+
+decodeKey : Decoder SocketText
+decodeKey =
+    map Key
+        (field "publicKey" decodePublicKey)
