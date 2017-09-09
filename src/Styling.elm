@@ -63,12 +63,19 @@ styling =
         , style Body [ Color.background grn, font ]
         , style Link [ Color.background ylw ]
         , style ShareThis [ Color.background blu, Font.size 20 ]
-        , style StartCircle [ Color.background org, Font.size 40 ]
+        , style StartCircle
+            [ Color.background org
+            , Font.size 40
+            , Style.pseudo "active"
+                [ Color.background red ]
+            ]
         , style Button
             [ Border.dashed
             , Color.border black
-            , Color.background red
+            , Color.background org
             , Font.size 20
             , font
+            , Style.pseudo "active"
+                [ Color.background red ]
             ]
         ]

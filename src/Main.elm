@@ -1,6 +1,7 @@
 port module Main exposing (main)
 
-import Element exposing (Element, button, circle, column, el, row, text, screen, viewport)
+import Animation
+import Element exposing (Element, button, circle, column, el, empty, image, row, text, screen, viewport)
 import Element.Attributes exposing (alignBottom, alignLeft, attribute, center, class, height, padding, px, spacing, verticalCenter, width, percent)
 import Element.Events exposing (onClick)
 import Element.Input as Input
@@ -29,11 +30,12 @@ main =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions { wsApi } =
+subscriptions { wsApi, keySpin } =
     Sub.batch
         [ WebSocket.listen wsApi CbWebsocketMessage
         , cbEncrypt CbEncrypt
         , cbDecrypt CbDecrypt
+        , Animation.subscription Animate [ keySpin ]
         ]
 
 
@@ -63,6 +65,7 @@ type alias Model =
     , input : String
     , wsApi : String
     , device : Element.Device
+    , keySpin : Animation.State
     }
 
 
@@ -135,19 +138,36 @@ init ( jwk, maybeRoomId, url ) =
                     , n = ""
                     }
 
-        ( status, cmd ) =
+        keyStart =
+            Animation.style
+                [ Animation.rotate <| Animation.deg 0
+                ]
+
+        ( status, keySpin, cmd ) =
             case maybeRoomId of
                 Just id ->
                     let
+                        spinInit =
+                            Animation.interrupt
+                                [ Animation.loop
+                                    [ Animation.to
+                                        [ Animation.rotate (Animation.turn 1) ]
+                                    ]
+                                ]
+                                keyStart
+
                         roomJoinRequest =
                             Encode.object [ ( "roomId", Encode.string id ) ]
                                 |> Encode.encode 0
                                 |> WebSocket.send url
                     in
-                        ( Joining myPublicKey, roomJoinRequest )
+                        ( Joining myPublicKey, spinInit, roomJoinRequest )
 
                 Nothing ->
-                    ( Start myPublicKey, Cmd.none )
+                    ( Start myPublicKey
+                    , keyStart
+                    , Cmd.none
+                    )
     in
         { status = status
         , input = ""
@@ -162,6 +182,7 @@ init ( jwk, maybeRoomId, url ) =
             , bigDesktop = False
             , portrait = False
             }
+        , keySpin = keySpin
         }
             ! [ cmd
               , Task.perform Resize Window.size
@@ -180,6 +201,7 @@ type Msg
     | CbEncrypt String
     | CbDecrypt String
     | Resize Window.Size
+    | Animate Animation.Msg
 
 
 
@@ -236,6 +258,12 @@ update msg model =
         CbDecrypt txt ->
             { model | messages = model.messages ++ [ { self = False, content = txt } ] } ! []
 
+        Animate animMsg ->
+            { model
+                | keySpin = Animation.update animMsg model.keySpin
+            }
+                ! []
+
         CbWebsocketMessage str ->
             case Decode.decodeString decodeSocketText str of
                 Ok socketMsg ->
@@ -257,7 +285,14 @@ update msg model =
                         RoomUnavailable ->
                             case model.status of
                                 Joining myPublicKey ->
-                                    { model | status = Start myPublicKey }
+                                    { model
+                                        | status = Start myPublicKey
+                                        , keySpin =
+                                            Animation.interrupt
+                                                [ Animation.set [ Animation.rotate (Animation.deg 0) ]
+                                                ]
+                                                model.keySpin
+                                    }
                                         ! [ log "room unavailable" 0, newUrl "/" ]
 
                                 a ->
@@ -305,8 +340,18 @@ update msg model =
                                         theirPk =
                                             encodePublicKey k
                                                 |> Encode.encode 0
+
+                                        keySpin =
+                                            Animation.interrupt
+                                                [ Animation.set [ Animation.rotate (Animation.deg 0) ]
+                                                ]
+                                                model.keySpin
                                     in
-                                        { model | status = Ready id (PublicKeyString theirPk) } ! []
+                                        { model
+                                            | status = Ready id (PublicKeyString theirPk)
+                                            , keySpin = keySpin
+                                        }
+                                            ! []
 
                                 a ->
                                     model ! [ log "key swap, oops" a ]
@@ -335,65 +380,75 @@ msgCard { self, content } =
 
 
 view : Model -> Html Msg
-view { status, device, messages, input } =
-    viewport styling <|
-        column Body
-            [ center, verticalCenter, width <| percent 100, height <| percent 100 ]
-            [ case status of
-                WaitingForBKey _ _ (RoomId roomId) ->
-                    column None
-                        [ center, spacing 20 ]
-                        [ el ShareThis [ padding 5 ] <| text "Share this link with someone to begin chat:"
-                        , el Link [ padding 10 ] <| text ("http://localhost:8080?room-id=" ++ roomId)
-                        , button Button [ padding 10, class "copy-button", attribute "data-clipboard-text" ("http://localhost:8080?room-id=" ++ roomId) ] <|
-                            text "COPY"
-                        ]
+view { status, device, messages, input, keySpin } =
+    let
+        keySpinner =
+            image None
+                (List.concat
+                    [ Animation.render keySpin |> List.map Element.Attributes.toAttr
+                    , [ width <| px <| (device.width |> toFloat |> flip (/) 3) ]
+                    ]
+                )
+                { src = "/car-key.svg", caption = "key-spinner" }
+    in
+        viewport styling <|
+            column Body
+                [ center, verticalCenter, width <| percent 100, height <| percent 100 ]
+                [ case status of
+                    WaitingForBKey _ _ (RoomId roomId) ->
+                        column None
+                            [ center, spacing 20 ]
+                            [ el ShareThis [ padding 5 ] <| text "Share this link with someone to begin chat:"
+                            , el Link [ padding 10 ] <| text ("http://localhost:8080?room-id=" ++ roomId)
+                            , button Button [ padding 10, class "copy-button", attribute "data-clipboard-text" ("http://localhost:8080?room-id=" ++ roomId) ] <|
+                                text "COPY"
+                            ]
 
-                WaitingForAKey _ ->
-                    text "spinner"
+                    WaitingForAKey _ ->
+                        keySpinner
 
-                Joining _ ->
-                    text "spinner"
+                    Joining _ ->
+                        keySpinner
 
-                Ready _ _ ->
-                    column None
-                        []
-                        (List.map msgCard messages
-                            ++ [ screen <|
-                                    el None
-                                        [ alignBottom ]
-                                    <|
-                                        row None
-                                            []
-                                            [ Input.text None
-                                                [ height <| px 40
-                                                , width <| px <| (device.width |> toFloat |> flip (/) 4 |> (*) 3)
+                    Ready _ _ ->
+                        column None
+                            []
+                            (List.map msgCard messages
+                                ++ [ screen <|
+                                        el None
+                                            [ alignBottom ]
+                                        <|
+                                            row None
+                                                []
+                                                [ Input.text None
+                                                    [ height <| px 40
+                                                    , width <| px <| (device.width |> toFloat |> flip (/) 4 |> (*) 3)
+                                                    ]
+                                                    { onChange = InputChange
+                                                    , value = input
+                                                    , label = Input.hiddenLabel "input"
+                                                    , options = []
+                                                    }
+                                                , button Button
+                                                    [ onClick Send
+                                                    , width <| px <| (device.width |> toFloat |> flip (/) 4)
+                                                    , height <| px 40
+                                                    ]
+                                                  <|
+                                                    text "send"
                                                 ]
-                                                { onChange = InputChange
-                                                , value = input
-                                                , label = Input.hiddenLabel "input"
-                                                , options = []
-                                                }
-                                            , button None
-                                                [ onClick Send
-                                                , width <| px <| (device.width |> toFloat |> flip (/) 4)
-                                                , height <| px 40
-                                                ]
-                                              <|
-                                                text "send"
-                                            ]
-                               ]
-                        )
+                                   ]
+                            )
 
-                Start _ ->
-                    circle (device.width |> toFloat |> flip (/) 3)
-                        StartCircle
-                        [ onClick Init, center, verticalCenter ]
-                    <|
-                        el None [ center, verticalCenter ] <|
-                            text
-                                "Start"
-            ]
+                    Start _ ->
+                        circle (device.width |> toFloat |> flip (/) 3)
+                            StartCircle
+                            [ onClick Init, center, verticalCenter ]
+                        <|
+                            el None [ center, verticalCenter ] <|
+                                text
+                                    "Start"
+                ]
 
 
 
