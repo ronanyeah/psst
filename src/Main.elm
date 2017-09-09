@@ -15,7 +15,7 @@ import WebSocket
 import Window
 
 
-main : Program ( Value, Maybe String, String ) Model Msg
+main : Program ( Value, Maybe String, String, String ) Model Msg
 main =
     Html.programWithFlags
         { init = init
@@ -63,6 +63,7 @@ type alias Model =
     { status : Status
     , messages : List Message
     , input : String
+    , location : String
     , wsApi : String
     , device : Element.Device
     , keySpin : Animation.State
@@ -122,8 +123,8 @@ type SocketMessages
 -- INIT
 
 
-init : ( Value, Maybe String, String ) -> ( Model, Cmd Msg )
-init ( jwk, maybeRoomId, url ) =
+init : ( Value, Maybe String, String, String ) -> ( Model, Cmd Msg )
+init ( jwk, maybeRoomId, url, wsUrl ) =
     let
         myPublicKey =
             jwk
@@ -159,7 +160,7 @@ init ( jwk, maybeRoomId, url ) =
                         roomJoinRequest =
                             Encode.object [ ( "roomId", Encode.string id ) ]
                                 |> Encode.encode 0
-                                |> WebSocket.send url
+                                |> WebSocket.send wsUrl
                     in
                         ( Joining myPublicKey, spinInit, roomJoinRequest )
 
@@ -172,7 +173,8 @@ init ( jwk, maybeRoomId, url ) =
         { status = status
         , input = ""
         , messages = []
-        , wsApi = url
+        , location = url
+        , wsApi = wsUrl
         , device =
             { width = 0
             , height = 0
@@ -380,7 +382,7 @@ msgCard { self, content } =
 
 
 view : Model -> Html Msg
-view { status, device, messages, input, keySpin } =
+view { status, device, messages, input, keySpin, location } =
     let
         keySpinner =
             image None
@@ -396,13 +398,22 @@ view { status, device, messages, input, keySpin } =
                 [ center, verticalCenter, width <| percent 100, height <| percent 100 ]
                 [ case status of
                     WaitingForBKey _ _ (RoomId roomId) ->
-                        column None
-                            [ center, spacing 20 ]
-                            [ el ShareThis [ padding 5 ] <| text "Share this link with someone to begin chat:"
-                            , el Link [ padding 10 ] <| text ("http://localhost:8080?room-id=" ++ roomId)
-                            , button Button [ padding 10, class "copy-button", attribute "data-clipboard-text" ("http://localhost:8080?room-id=" ++ roomId) ] <|
-                                text "COPY"
-                            ]
+                        let
+                            roomlink =
+                                location ++ "?room-id=" ++ roomId
+                        in
+                            column None
+                                [ center, spacing 20 ]
+                                [ el ShareThis [ padding 5 ] <| text "Share this link with someone to begin chat:"
+                                , el Link [ padding 10 ] <| text roomlink
+                                , button Button
+                                    [ padding 10
+                                    , class "copy-button"
+                                    , attribute "data-clipboard-text" roomlink
+                                    ]
+                                  <|
+                                    text "COPY"
+                                ]
 
                     WaitingForAKey _ ->
                         keySpinner

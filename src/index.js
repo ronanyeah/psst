@@ -42,9 +42,11 @@ crypto.generateKey(
   return crypto.exportKey('jwk', keys.publicKey)
   .then(function (jwk) {
 
-    var roomId = new URLSearchParams(window.location.search).get('room-id')
+    var maybeRoomId = new URLSearchParams(window.location.search).get('room-id')
 
-    var app = Elm.Main.fullscreen([jwk, roomId, WS_API])
+    var href = window.location.href
+
+    var app = Elm.Main.fullscreen([jwk, maybeRoomId, href, WS_API])
 
     app.ports.decrypt.subscribe(function (encryptedText) {
       return crypto.decrypt(
