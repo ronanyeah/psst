@@ -1,9 +1,9 @@
 port module Main exposing (main)
 
 import Animation
-import Element exposing (Element, button, circle, column, el, empty, image, paragraph, row, text, screen, viewport)
+import Element exposing (Attribute, Element, button, circle, column, el, empty, image, paragraph, row, text, screen, viewport)
 import Element.Attributes exposing (alignBottom, attribute, center, class, height, padding, px, spacing, verticalCenter, width, percent, vary)
-import Element.Events exposing (onClick)
+import Element.Events exposing (on, onClick, keyCode)
 import Element.Input as Input
 import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder, andThen, fail, field, list, bool, map2, map6, map, string, decodeValue, succeed)
@@ -429,6 +429,7 @@ view { status, device, messages, input, keySpin, location } =
                                     [ Input.text None
                                         [ height <| px 40
                                         , width <| px <| (device.width |> toFloat |> flip (/) 4 |> (*) 3)
+                                        , onPressEnter Send
                                         ]
                                         { onChange = InputChange
                                         , value = input
@@ -458,6 +459,19 @@ view { status, device, messages, input, keySpin, location } =
 
 
 -- HELPERS
+
+
+onPressEnter : msg -> Attribute variation msg
+onPressEnter msg =
+    keyCode
+        |> andThen
+            (\int ->
+                if int == 13 then
+                    succeed msg
+                else
+                    fail "not enter"
+            )
+        |> on "keyup"
 
 
 log : String -> a -> Cmd Msg
