@@ -1,8 +1,8 @@
-module Styling exposing (Styles(..), styling)
+module Styling exposing (Styles(..), Variations(..), styling)
 
 import Color exposing (black, rgb)
 import Style.Font as Font
-import Style exposing (StyleSheet, style, styleSheet)
+import Style exposing (StyleSheet, style, styleSheet, variation)
 import Style.Color as Color
 import Style.Border as Border
 
@@ -11,9 +11,14 @@ type Styles
     = Button
     | Body
     | Link
+    | MsgCard
     | None
     | StartCircle
     | ShareThis
+
+
+type Variations
+    = Self
 
 
 font : Style.Property class variation
@@ -56,12 +61,18 @@ red =
     rgb 255 0 0
 
 
-styling : StyleSheet Styles variation
+styling : StyleSheet Styles Variations
 styling =
     styleSheet
         [ style None []
         , style Body [ Color.background grn, font ]
         , style Link [ Color.background ylw ]
+        , style MsgCard
+            [ Color.background ylw
+            , Font.size 35
+            , Font.alignLeft
+            , variation Self [ Color.background org, Font.alignRight ]
+            ]
         , style ShareThis [ Color.background blu, Font.size 20 ]
         , style StartCircle
             [ Color.background org
@@ -73,7 +84,7 @@ styling =
             [ Border.dashed
             , Color.border black
             , Color.background org
-            , Font.size 20
+            , Font.size 30
             , font
             , Style.pseudo "active"
                 [ Color.background red ]

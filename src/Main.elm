@@ -1,15 +1,15 @@
 port module Main exposing (main)
 
 import Animation
-import Element exposing (Element, button, circle, column, el, empty, image, row, text, screen, viewport)
-import Element.Attributes exposing (alignBottom, alignLeft, attribute, center, class, height, padding, px, spacing, verticalCenter, width, percent)
+import Element exposing (Element, button, circle, column, el, empty, image, paragraph, row, text, screen, viewport)
+import Element.Attributes exposing (alignBottom, attribute, center, class, height, padding, px, spacing, verticalCenter, width, percent, vary)
 import Element.Events exposing (onClick)
 import Element.Input as Input
 import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder, andThen, fail, field, list, bool, map2, map6, map, string, decodeValue, succeed)
 import Json.Encode as Encode exposing (Value)
 import Navigation exposing (newUrl)
-import Styling exposing (Styles(..), styling)
+import Styling exposing (Styles(..), Variations(..), styling)
 import Task
 import WebSocket
 import Window
@@ -366,19 +366,9 @@ update msg model =
 -- VIEW
 
 
-msgCard : Message -> Element Styles variation msg
+msgCard : Message -> Element Styles Variations msg
 msgCard { self, content } =
-    column None
-        [ alignLeft ]
-        [ el None [] <|
-            text
-                (if self then
-                    "Me:"
-                 else
-                    "Them:"
-                )
-        , el None [] <| text content
-        ]
+    paragraph MsgCard [ padding 4, vary Self self ] [ text content ]
 
 
 view : Model -> Html Msg
@@ -392,16 +382,20 @@ view { status, device, messages, input, keySpin, location } =
                     ]
                 )
                 { src = "/car-key.svg", caption = "key-spinner" }
-    in
-        viewport styling <|
+
+        wrapBody body =
             column Body
                 [ center, verticalCenter, width <| percent 100, height <| percent 100 ]
-                [ case status of
-                    WaitingForBKey _ _ (RoomId roomId) ->
-                        let
-                            roomlink =
-                                location ++ "?room-id=" ++ roomId
-                        in
+                [ body ]
+    in
+        viewport styling <|
+            case status of
+                WaitingForBKey _ _ (RoomId roomId) ->
+                    let
+                        roomlink =
+                            location ++ "?room-id=" ++ roomId
+                    in
+                        wrapBody <|
                             column None
                                 [ center, spacing 20 ]
                                 [ el ShareThis [ padding 5 ] <| text "Share this link with someone to begin chat:"
@@ -415,43 +409,44 @@ view { status, device, messages, input, keySpin, location } =
                                     text "COPY"
                                 ]
 
-                    WaitingForAKey _ ->
-                        keySpinner
+                WaitingForAKey _ ->
+                    wrapBody <| keySpinner
 
-                    Joining _ ->
-                        keySpinner
+                Joining _ ->
+                    wrapBody <| keySpinner
 
-                    Ready _ _ ->
-                        column None
-                            []
-                            (List.map msgCard messages
-                                ++ [ screen <|
-                                        el None
-                                            [ alignBottom ]
-                                        <|
-                                            row None
-                                                []
-                                                [ Input.text None
-                                                    [ height <| px 40
-                                                    , width <| px <| (device.width |> toFloat |> flip (/) 4 |> (*) 3)
-                                                    ]
-                                                    { onChange = InputChange
-                                                    , value = input
-                                                    , label = Input.hiddenLabel "input"
-                                                    , options = []
-                                                    }
-                                                , button Button
-                                                    [ onClick Send
-                                                    , width <| px <| (device.width |> toFloat |> flip (/) 4)
-                                                    , height <| px 40
-                                                    ]
-                                                  <|
-                                                    text "send"
-                                                ]
-                                   ]
-                            )
+                Ready _ _ ->
+                    column Body
+                        [ width <| percent 100, height <| percent 100 ]
+                        [ column Body [ spacing 7, padding 7 ] <| List.map msgCard messages
+                        , el None [ height <| px 40 ] empty
+                        , screen <|
+                            el None
+                                [ alignBottom ]
+                            <|
+                                row None
+                                    []
+                                    [ Input.text None
+                                        [ height <| px 40
+                                        , width <| px <| (device.width |> toFloat |> flip (/) 4 |> (*) 3)
+                                        ]
+                                        { onChange = InputChange
+                                        , value = input
+                                        , label = Input.hiddenLabel "input"
+                                        , options = []
+                                        }
+                                    , button Button
+                                        [ onClick Send
+                                        , width <| px <| (device.width |> toFloat |> flip (/) 4)
+                                        , height <| px 40
+                                        ]
+                                      <|
+                                        text "send"
+                                    ]
+                        ]
 
-                    Start _ ->
+                Start _ ->
+                    wrapBody <|
                         circle (device.width |> toFloat |> flip (/) 3)
                             StartCircle
                             [ onClick Init, center, verticalCenter ]
@@ -459,7 +454,6 @@ view { status, device, messages, input, keySpin, location } =
                             el None [ center, verticalCenter ] <|
                                 text
                                     "Start"
-                ]
 
 
 

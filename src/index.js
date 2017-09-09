@@ -44,7 +44,7 @@ crypto.generateKey(
 
     var maybeRoomId = new URLSearchParams(window.location.search).get('room-id')
 
-    var href = window.location.href
+    var href = window.location.origin
 
     var app = Elm.Main.fullscreen([jwk, maybeRoomId, href, WS_API])
 
