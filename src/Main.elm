@@ -1,18 +1,17 @@
 port module Main exposing (main)
 
-import Color exposing (black, grey)
-import Element exposing (button, circle, column, el, text, viewport)
-import Element.Attributes exposing (attribute, center, class, height, verticalCenter, width, percent)
+import Element exposing (Element, button, circle, column, el, row, text, screen, viewport)
+import Element.Attributes exposing (alignBottom, alignLeft, attribute, center, class, height, padding, px, spacing, verticalCenter, width, percent)
 import Element.Events exposing (onClick)
 import Element.Input as Input
 import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder, andThen, fail, field, list, bool, map2, map6, map, string, decodeValue, succeed)
 import Json.Encode as Encode exposing (Value)
 import Navigation exposing (newUrl)
-import Style exposing (StyleSheet, style, styleSheet)
-import Style.Color as Color
-import Style.Border as Border
+import Styling exposing (Styles(..), styling)
+import Task
 import WebSocket
+import Window
 
 
 main : Program ( Value, Maybe String, String ) Model Msg
@@ -58,6 +57,25 @@ port cbEncrypt : (String -> msg) -> Sub msg
 -- MODEL
 
 
+type alias Model =
+    { status : Status
+    , messages : List Message
+    , input : String
+    , wsApi : String
+    , device : Element.Device
+    }
+
+
+
+-- TYPES
+
+
+type alias Message =
+    { self : Bool
+    , content : String
+    }
+
+
 type PublicKeyString
     = PublicKeyString String
 
@@ -70,22 +88,6 @@ type RoomId
     = RoomId String
 
 
-type Status
-    = Start PublicKeyRecord
-    | WaitingForBKey PublicKeyRecord ConnId RoomId
-    | Joining PublicKeyRecord
-    | WaitingForAKey ConnId
-    | Ready ConnId PublicKeyString
-
-
-type alias Model =
-    { status : Status
-    , messages : List String
-    , input : String
-    , wsApi : String
-    }
-
-
 type alias PublicKeyRecord =
     { alg : String
     , e : String
@@ -96,9 +98,17 @@ type alias PublicKeyRecord =
     }
 
 
-type SocketText
+type Status
+    = Start PublicKeyRecord
+    | WaitingForBKey PublicKeyRecord ConnId RoomId
+    | Joining PublicKeyRecord
+    | WaitingForAKey ConnId
+    | Ready ConnId PublicKeyString
+
+
+type SocketMessages
     = Waiting ConnId RoomId
-    | Message String
+    | ReceiveMessage String
     | Error String
     | ReceiveAId ConnId
     | Key PublicKeyRecord
@@ -143,8 +153,19 @@ init ( jwk, maybeRoomId, url ) =
         , input = ""
         , messages = []
         , wsApi = url
+        , device =
+            { width = 0
+            , height = 0
+            , phone = False
+            , tablet = False
+            , desktop = False
+            , bigDesktop = False
+            , portrait = False
+            }
         }
-            ! [ cmd ]
+            ! [ cmd
+              , Task.perform Resize Window.size
+              ]
 
 
 
@@ -158,6 +179,7 @@ type Msg
     | Send
     | CbEncrypt String
     | CbDecrypt String
+    | Resize Window.Size
 
 
 
@@ -170,7 +192,7 @@ update msg model =
         Init ->
             let
                 json =
-                    Encode.object [ ( "init", Encode.bool True ) ]
+                    Encode.string "START"
                         |> Encode.encode 0
             in
                 model
@@ -182,10 +204,17 @@ update msg model =
         Send ->
             case model.status of
                 Ready _ (PublicKeyString key) ->
-                    model ! [ encrypt ( model.input, key ) ]
+                    { model
+                        | input = ""
+                        , messages = model.messages ++ [ { self = True, content = model.input } ]
+                    }
+                        ! [ encrypt ( model.input, key ) ]
 
                 a ->
                     model ! [ log "send, oops" a ]
+
+        Resize size ->
+            { model | device = Element.classifyDevice size } ! []
 
         CbEncrypt txt ->
             case model.status of
@@ -198,14 +227,14 @@ update msg model =
                                 ]
                                 |> Encode.encode 0
                     in
-                        { model | input = "" }
+                        model
                             ! [ WebSocket.send model.wsApi json ]
 
                 a ->
                     model ! [ log "cbEncrypt, oops" a ]
 
         CbDecrypt txt ->
-            { model | messages = txt :: model.messages } ! []
+            { model | messages = model.messages ++ [ { self = False, content = txt } ] } ! []
 
         CbWebsocketMessage str ->
             case Decode.decodeString decodeSocketText str of
@@ -219,7 +248,7 @@ update msg model =
                                 a ->
                                     model ! [ log "waiting, oops" a ]
 
-                        Message txt ->
+                        ReceiveMessage txt ->
                             model ! [ decrypt txt ]
 
                         Error err ->
@@ -290,34 +319,34 @@ update msg model =
 -- VIEW
 
 
-type Styles
-    = Button
-    | None
-    | StartCircle
-
-
-styling : StyleSheet Styles variation
-styling =
-    styleSheet
-        [ style None []
-        , style StartCircle [ Color.background grey ]
-        , style Button [ Border.dashed, Color.border black ]
+msgCard : Message -> Element Styles variation msg
+msgCard { self, content } =
+    column None
+        [ alignLeft ]
+        [ el None [] <|
+            text
+                (if self then
+                    "Me:"
+                 else
+                    "Them:"
+                )
+        , el None [] <| text content
         ]
 
 
 view : Model -> Html Msg
-view model =
+view { status, device, messages, input } =
     viewport styling <|
-        column None
+        column Body
             [ center, verticalCenter, width <| percent 100, height <| percent 100 ]
-            [ case model.status of
+            [ case status of
                 WaitingForBKey _ _ (RoomId roomId) ->
                     column None
-                        []
-                        [ el None [] <| text "Share this link with someone to begin chat:"
-                        , el None [] <| text ("\"http://localhost:8080/?room-id=" ++ roomId ++ "\"")
-                        , button None [ class "copy-button", attribute "data-clipboard-text" ("http://localhost:8080/?room-id=" ++ roomId) ] <|
-                            text "Copy to clipboard"
+                        [ center, spacing 20 ]
+                        [ el ShareThis [ padding 5 ] <| text "Share this link with someone to begin chat:"
+                        , el Link [ padding 10 ] <| text ("http://localhost:8080?room-id=" ++ roomId)
+                        , button Button [ padding 10, class "copy-button", attribute "data-clipboard-text" ("http://localhost:8080?room-id=" ++ roomId) ] <|
+                            text "COPY"
                         ]
 
                 WaitingForAKey _ ->
@@ -329,20 +358,35 @@ view model =
                 Ready _ _ ->
                     column None
                         []
-                        (List.map (\x -> el None [] <| text x) model.messages
-                            ++ [ Input.text None
-                                    []
-                                    { onChange = InputChange
-                                    , value = model.input
-                                    , label = Input.labelAbove <| text "say something!"
-                                    , options = []
-                                    }
-                               , button None [ onClick Send ] <| text "send"
+                        (List.map msgCard messages
+                            ++ [ screen <|
+                                    el None
+                                        [ alignBottom ]
+                                    <|
+                                        row None
+                                            []
+                                            [ Input.text None
+                                                [ height <| px 40
+                                                , width <| px <| (device.width |> toFloat |> flip (/) 4 |> (*) 3)
+                                                ]
+                                                { onChange = InputChange
+                                                , value = input
+                                                , label = Input.hiddenLabel "input"
+                                                , options = []
+                                                }
+                                            , button None
+                                                [ onClick Send
+                                                , width <| px <| (device.width |> toFloat |> flip (/) 4)
+                                                , height <| px 40
+                                                ]
+                                              <|
+                                                text "send"
+                                            ]
                                ]
                         )
 
                 Start _ ->
-                    circle 50
+                    circle (device.width |> toFloat |> flip (/) 3)
                         StartCircle
                         [ onClick Init, center, verticalCenter ]
                     <|
@@ -392,7 +436,7 @@ decodePublicKey =
         (field "n" string)
 
 
-decodeSocketText : Decoder SocketText
+decodeSocketText : Decoder SocketMessages
 decodeSocketText =
     Decode.oneOf
         [ decodeWaiting
@@ -404,38 +448,38 @@ decodeSocketText =
         ]
 
 
-decodeWaiting : Decoder SocketText
+decodeWaiting : Decoder SocketMessages
 decodeWaiting =
     map2 Waiting
         (field "id" (map ConnId string))
         (field "room" (map RoomId string))
 
 
-decodeMessage : Decoder SocketText
+decodeMessage : Decoder SocketMessages
 decodeMessage =
-    map Message
+    map ReceiveMessage
         (field "message" string)
 
 
-decodeStart : Decoder SocketText
+decodeStart : Decoder SocketMessages
 decodeStart =
     map ReceiveAId
         (field "start" (map ConnId string))
 
 
-decodeError : Decoder SocketText
+decodeError : Decoder SocketMessages
 decodeError =
     map Error
         (field "error" string)
 
 
-decodeKey : Decoder SocketText
+decodeKey : Decoder SocketMessages
 decodeKey =
     map Key
         (field "publicKey" decodePublicKey)
 
 
-decodeEnum : Decoder SocketText
+decodeEnum : Decoder SocketMessages
 decodeEnum =
     string
         |> andThen
