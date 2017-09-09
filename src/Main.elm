@@ -353,7 +353,7 @@ update msg model =
                                             | status = Ready id (PublicKeyString theirPk)
                                             , keySpin = keySpin
                                         }
-                                            ! []
+                                            ! [ newUrl "/" ]
 
                                 a ->
                                     model ! [ log "key swap, oops" a ]
