@@ -1,16 +1,22 @@
+var Clipboard = require('clipboard')
+var Elm = require('./Main.elm')
+var crypto = window.crypto.subtle || window.crypto.webkitSubtle || window.crypto.msSubtle
+
 if (navigator.serviceWorker) {
   navigator.serviceWorker.register('/sw.js')
   .then(console.log)
   .catch(console.error)
 }
 
-var Clipboard = require('clipboard')
+if (!crypto || !crypto.generateKey || !crypto.encrypt || !crypto.decrypt || !crypto.importKey || !crypto.exportKey) {
+  alert('bad crypto')
+  throw Error('bad crypto')
+}
 
-var clipboard = new Clipboard('.copy-button')
+new Clipboard('.copy-button')
 
-var crypto = window.crypto.subtle
-
-var Elm = require('./Main.elm')
+var maybeRoomId = new URLSearchParams(window.location.search).get('room-id')
+var href = window.location.origin
 
 // String -> ArrayBuffer
 function stringToArrayBuffer (string) {
@@ -43,10 +49,6 @@ crypto.generateKey(
 .then(function (keys) {
   return crypto.exportKey('jwk', keys.publicKey)
   .then(function (jwk) {
-
-    var maybeRoomId = new URLSearchParams(window.location.search).get('room-id')
-
-    var href = window.location.origin
 
     var app = Elm.Main.fullscreen([jwk, maybeRoomId, href, WS_API])
 
@@ -92,4 +94,4 @@ crypto.generateKey(
 
   })
 })
-.catch(console.error)
+.catch(alert)
