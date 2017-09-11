@@ -15,7 +15,7 @@ if (!crypto || !crypto.generateKey || !crypto.encrypt || !crypto.decrypt || !cry
 
 new Clipboard('.copy-button')
 
-var maybeRoomId = new URLSearchParams(window.location.search).get('room-id')
+var maybeRoomId = window.location.hash ? window.location.hash.substring(1) : null
 var href = window.location.origin
 
 // String -> ArrayBuffer

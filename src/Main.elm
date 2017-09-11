@@ -503,7 +503,7 @@ view { status, device, messages, input, keySpin, location, time, arrow } =
                 WaitingForBKey _ _ (RoomId roomId) ->
                     let
                         roomlink =
-                            location ++ "?room-id=" ++ roomId
+                            location ++ "#" ++ roomId
                     in
                         wrapBody <|
                             column None
