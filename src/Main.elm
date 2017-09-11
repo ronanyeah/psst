@@ -1,8 +1,10 @@
 port module Main exposing (main)
 
 import Animation
-import Element exposing (Attribute, Element, button, circle, column, el, empty, image, paragraph, row, text, screen, viewport)
-import Element.Attributes exposing (alignBottom, attribute, center, class, height, padding, px, spacing, verticalCenter, width, percent, vary)
+import Dom
+import Dom.Scroll exposing (toBottom)
+import Element exposing (Attribute, Element, button, circle, column, el, empty, image, paragraph, row, text, screen, viewport, when)
+import Element.Attributes exposing (alignBottom, alignLeft, attribute, center, class, height, id, padding, paddingBottom, px, spacing, moveUp, verticalCenter, width, percent, vary, scrollbars)
 import Element.Events exposing (on, onClick, keyCode)
 import Element.Input as Input
 import Html exposing (Html)
@@ -11,6 +13,7 @@ import Json.Encode as Encode exposing (Value)
 import Navigation exposing (newUrl)
 import Styling exposing (Styles(..), Variations(..), styling)
 import Task
+import Time exposing (Time, second)
 import WebSocket
 import Window
 
@@ -36,6 +39,7 @@ subscriptions { wsApi, keySpin } =
         , cbEncrypt CbEncrypt
         , cbDecrypt CbDecrypt
         , Animation.subscription Animate [ keySpin ]
+        , Time.every second Tick
         ]
 
 
@@ -63,10 +67,14 @@ type alias Model =
     { status : Status
     , messages : List Message
     , input : String
+    , lastTyped : Time
+    , lastTypedPing : Time
     , location : String
     , wsApi : String
     , device : Element.Device
     , keySpin : Animation.State
+    , time : Time
+    , arrow : Bool
     }
 
 
@@ -102,12 +110,16 @@ type alias PublicKeyRecord =
     }
 
 
+type alias TypingAt =
+    Time
+
+
 type Status
     = Start PublicKeyRecord
     | WaitingForBKey PublicKeyRecord ConnId RoomId
     | Joining PublicKeyRecord
     | WaitingForAKey ConnId
-    | Ready ConnId PublicKeyString
+    | Ready ConnId PublicKeyString TypingAt
 
 
 type SocketMessages
@@ -117,6 +129,7 @@ type SocketMessages
     | ReceiveAId ConnId
     | Key PublicKeyRecord
     | RoomUnavailable
+    | Typing
 
 
 
@@ -173,6 +186,8 @@ init ( jwk, maybeRoomId, url, wsUrl ) =
         { status = status
         , input = ""
         , messages = []
+        , lastTyped = 0
+        , lastTypedPing = 0
         , location = url
         , wsApi = wsUrl
         , device =
@@ -185,6 +200,8 @@ init ( jwk, maybeRoomId, url, wsUrl ) =
             , portrait = False
             }
         , keySpin = keySpin
+        , time = 0
+        , arrow = False
         }
             ! [ cmd
               , Task.perform Resize Window.size
@@ -204,6 +221,9 @@ type Msg
     | CbDecrypt String
     | Resize Window.Size
     | Animate Animation.Msg
+    | Tick Time
+    | ScrollToBottom (Result Dom.Error ())
+    | Scroll Bool
 
 
 
@@ -222,32 +242,62 @@ update msg model =
                 model
                     ! [ WebSocket.send model.wsApi json ]
 
+        ScrollToBottom res ->
+            model ! [ log "scroll" res ]
+
         InputChange str ->
-            { model | input = str } ! []
+            let
+                ( pinged, cmd ) =
+                    if (model.lastTyped - model.lastTypedPing) > 4000 then
+                        case model.status of
+                            Ready (ConnId id) _ _ ->
+                                ( model.time
+                                , [ ( "conn", Encode.string id )
+                                  , ( "data", Encode.string ("TYPING" |> Encode.string |> Encode.encode 0) )
+                                  ]
+                                    |> Encode.object
+                                    |> Encode.encode 0
+                                    |> WebSocket.send model.wsApi
+                                )
+
+                            _ ->
+                                ( model.lastTypedPing, Cmd.none )
+                    else
+                        ( model.lastTypedPing, Cmd.none )
+            in
+                { model | input = str, lastTyped = model.time, lastTypedPing = pinged } ! [ cmd ]
 
         Send ->
-            case model.status of
-                Ready _ (PublicKeyString key) ->
-                    { model
-                        | input = ""
-                        , messages = model.messages ++ [ { self = True, content = model.input } ]
-                    }
-                        ! [ encrypt ( model.input, key ) ]
+            if String.isEmpty model.input then
+                model ! []
+            else
+                case model.status of
+                    Ready _ (PublicKeyString key) _ ->
+                        { model
+                            | input = ""
+                            , messages = model.messages ++ [ { self = True, content = model.input } ]
+                        }
+                            ! [ encrypt ( model.input, key ), scrollToBottom ]
 
-                a ->
-                    model ! [ log "send, oops" a ]
+                    a ->
+                        model ! [ log "send, oops" a ]
 
         Resize size ->
             { model | device = Element.classifyDevice size } ! []
 
         CbEncrypt txt ->
             case model.status of
-                Ready (ConnId id) _ ->
+                Ready (ConnId id) _ _ ->
                     let
                         json =
                             Encode.object
                                 [ ( "conn", Encode.string id )
-                                , ( "message", Encode.string txt )
+                                , ( "data"
+                                  , [ ( "message", Encode.string txt ) ]
+                                        |> Encode.object
+                                        |> Encode.encode 0
+                                        |> Encode.string
+                                  )
                                 ]
                                 |> Encode.encode 0
                     in
@@ -258,13 +308,20 @@ update msg model =
                     model ! [ log "cbEncrypt, oops" a ]
 
         CbDecrypt txt ->
-            { model | messages = model.messages ++ [ { self = False, content = txt } ] } ! []
+            { model | messages = model.messages ++ [ { self = False, content = txt } ] }
+                ! [ scrollToBottom ]
 
         Animate animMsg ->
             { model
                 | keySpin = Animation.update animMsg model.keySpin
             }
                 ! []
+
+        Tick time ->
+            { model | time = time } ! []
+
+        Scroll b ->
+            { model | arrow = b } ! []
 
         CbWebsocketMessage str ->
             case Decode.decodeString decodeSocketText str of
@@ -280,6 +337,14 @@ update msg model =
 
                         ReceiveMessage txt ->
                             model ! [ decrypt txt ]
+
+                        Typing ->
+                            case model.status of
+                                Ready id key _ ->
+                                    { model | status = Ready id key model.time } ! []
+
+                                _ ->
+                                    model ! []
 
                         Error err ->
                             model ! [ log "socket server error" err ]
@@ -304,11 +369,17 @@ update msg model =
                             case model.status of
                                 Joining myPublicKey ->
                                     let
+                                        keyData =
+                                            [ ( "key", encodePublicKey myPublicKey )
+                                            ]
+                                                |> Encode.object
+                                                |> Encode.encode 0
+
                                         json =
-                                            Encode.object
-                                                [ ( "conn", Encode.string id )
-                                                , ( "key", encodePublicKey myPublicKey )
-                                                ]
+                                            [ ( "conn", Encode.string id )
+                                            , ( "data", Encode.string keyData )
+                                            ]
+                                                |> Encode.object
                                                 |> Encode.encode 0
                                     in
                                         { model | status = WaitingForAKey (ConnId id) }
@@ -321,11 +392,17 @@ update msg model =
                             case model.status of
                                 WaitingForBKey myPublicKey (ConnId id) _ ->
                                     let
+                                        keyData =
+                                            [ ( "key", encodePublicKey myPublicKey )
+                                            ]
+                                                |> Encode.object
+                                                |> Encode.encode 0
+
                                         json =
-                                            Encode.object
-                                                [ ( "conn", Encode.string id )
-                                                , ( "key", encodePublicKey myPublicKey )
-                                                ]
+                                            [ ( "conn", Encode.string id )
+                                            , ( "data", Encode.string keyData )
+                                            ]
+                                                |> Encode.object
                                                 |> Encode.encode 0
 
                                         theirPk =
@@ -333,7 +410,7 @@ update msg model =
                                                 |> Encode.encode 0
                                     in
                                         { model
-                                            | status = Ready (ConnId id) (PublicKeyString theirPk)
+                                            | status = Ready (ConnId id) (PublicKeyString theirPk) 0
                                         }
                                             ! [ WebSocket.send model.wsApi json ]
 
@@ -350,7 +427,7 @@ update msg model =
                                                 model.keySpin
                                     in
                                         { model
-                                            | status = Ready id (PublicKeyString theirPk)
+                                            | status = Ready id (PublicKeyString theirPk) 0
                                             , keySpin = keySpin
                                         }
                                             ! [ newUrl "/" ]
@@ -372,7 +449,7 @@ msgCard { self, content } =
 
 
 view : Model -> Html Msg
-view { status, device, messages, input, keySpin, location } =
+view { status, device, messages, input, keySpin, location, time, arrow } =
     let
         keySpinner =
             image None
@@ -397,12 +474,13 @@ view { status, device, messages, input, keySpin, location } =
                     in
                         wrapBody <|
                             column None
-                                [ center, spacing 20 ]
-                                [ el ShareThis [ padding 5 ] <| text "Share this link with someone to begin chat:"
-                                , el Link [ padding 10 ] <| text roomlink
+                                [ center ]
+                                [ paragraph ShareThis
+                                    []
+                                    [ text "Share this link with someone to begin chat:" ]
+                                , paragraph Link [ padding 10 ] [ text roomlink ]
                                 , button Button
-                                    [ padding 10
-                                    , class "copy-button"
+                                    [ class "copy-button"
                                     , attribute "data-clipboard-text" roomlink
                                     ]
                                   <|
@@ -415,10 +493,25 @@ view { status, device, messages, input, keySpin, location } =
                 Joining _ ->
                     wrapBody <| keySpinner
 
-                Ready _ _ ->
+                Ready _ _ typingAt ->
                     column Body
                         [ width <| percent 100, height <| percent 100 ]
-                        [ column Body [ spacing 7, padding 7 ] <| List.map msgCard messages
+                        [ column Body [ spacing 7, padding 7, id "messages", scrollbars, onScroll Scroll ] <|
+                            List.map msgCard messages
+                                ++ (if (time - typingAt) < 5000 then
+                                        [ image None
+                                            []
+                                            { src = "/typing.svg", caption = "is-typing" }
+                                        ]
+                                    else
+                                        []
+                                   )
+                        , when arrow <|
+                            screen <|
+                                circle 20
+                                    StartCircle
+                                    [ alignLeft, alignBottom, moveUp 40 ]
+                                    empty
                         , el None [ height <| px 40 ] empty
                         , screen <|
                             el None
@@ -459,6 +552,38 @@ view { status, device, messages, input, keySpin, location } =
 
 
 -- HELPERS
+
+
+scrollToBottom : Cmd Msg
+scrollToBottom =
+    Task.attempt ScrollToBottom <| toBottom "messages"
+
+
+onScroll : (Bool -> msg) -> Attribute variation msg
+onScroll msg =
+    on "scroll" (Decode.map msg onScrollJsonParser)
+
+
+onScrollEx : msg -> Attribute variation msg
+onScrollEx =
+    succeed
+        >> on "scroll"
+
+
+onScrollJsonParser : Decode.Decoder Bool
+onScrollJsonParser =
+    Decode.map4
+        (\scrollHeight scrollTop clientHeight clientTop ->
+            let
+                _ =
+                    Debug.log "ok" ( scrollHeight, scrollTop, clientHeight, clientTop )
+            in
+                (scrollHeight - scrollTop) == clientHeight
+        )
+        (Decode.at [ "target", "scrollHeight" ] Decode.int)
+        (Decode.at [ "target", "scrollTop" ] Decode.int)
+        (Decode.at [ "target", "clientHeight" ] Decode.int)
+        (Decode.at [ "target", "clientTop" ] Decode.int)
 
 
 onPressEnter : msg -> Attribute variation msg
@@ -514,11 +639,11 @@ decodeSocketText : Decoder SocketMessages
 decodeSocketText =
     Decode.oneOf
         [ decodeWaiting
-        , decodeMessage
         , decodeStart
         , decodeError
-        , decodeKey
         , decodeEnum
+        , decodeKey
+        , decodeMessage
         ]
 
 
@@ -550,7 +675,7 @@ decodeError =
 decodeKey : Decoder SocketMessages
 decodeKey =
     map Key
-        (field "publicKey" decodePublicKey)
+        (field "key" decodePublicKey)
 
 
 decodeEnum : Decoder SocketMessages
@@ -561,6 +686,9 @@ decodeEnum =
                 case str of
                     "ROOM_UNAVAILABLE" ->
                         succeed RoomUnavailable
+
+                    "TYPING" ->
+                        succeed Typing
 
                     a ->
                         fail ("enum: \"" ++ a ++ "\" not recognised")
