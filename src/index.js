@@ -4,6 +4,8 @@ if (navigator.serviceWorker) {
   .catch(console.error)
 }
 
+var Clipboard = require('clipboard')
+
 var clipboard = new Clipboard('.copy-button')
 
 var crypto = window.crypto.subtle

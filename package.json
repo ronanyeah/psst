@@ -11,6 +11,7 @@
     "url": "git+https://github.com/ronanyeah/psst.git"
   },
   "dependencies": {
+    "clipboard": "^1.7.1",
     "elm-webpack-loader": "^4.3.1",
     "webpack": "^3.5.5"
   },
