@@ -27,7 +27,7 @@ update msg model =
                 ( pinged, cmd ) =
                     if (model.lastTyped - model.lastTypedPing) > 4000 then
                         case model.status of
-                            Ready connId _ _ ->
+                            Ready connId _ ->
                                 ( model.time
                                 , Json.Encode.string "TYPING"
                                     |> encodeDataTransmit connId
@@ -46,7 +46,7 @@ update msg model =
                 model ! []
             else
                 case model.status of
-                    Ready _ (PublicKeyString key) _ ->
+                    Ready _ _ ->
                         { model
                             | input = ""
                             , messages = model.messages ++ [ { self = True, content = model.input } ]
@@ -61,32 +61,27 @@ update msg model =
 
         CbEncrypt txt ->
             case model.status of
-                Ready (ConnId connId) _ _ ->
+                Ready connId _ ->
                     let
-                        json =
-                            Json.Encode.object
-                                [ ( "conn", Json.Encode.string connId )
-                                , ( "data"
-                                  , [ ( "message", Json.Encode.string txt ) ]
-                                        |> Json.Encode.object
-                                        |> Json.Encode.encode 0
-                                        |> Json.Encode.string
-                                  )
-                                ]
-                                |> Json.Encode.encode 0
+                        messageTransfer =
+                            [ ( "message", Json.Encode.string txt )
+                            ]
+                                |> Json.Encode.object
+                                |> encodeDataTransmit connId
+                                |> WebSocket.send model.wsApi
                     in
                         model
-                            ! [ WebSocket.send model.wsApi json ]
+                            ! [ messageTransfer ]
 
                 a ->
                     model ! [ log "cbEncrypt, oops" a ]
 
         CbDecrypt txt ->
             case model.status of
-                Ready connId publicKeyString _ ->
+                Ready connId _ ->
                     { model
                         | messages = model.messages ++ [ { self = False, content = txt } ]
-                        , status = Ready connId publicKeyString NotTyping
+                        , status = Ready connId NotTyping
                     }
                         ! [ scrollToBottom ]
 
@@ -104,6 +99,17 @@ update msg model =
 
         ScrollToBottom ->
             model ! [ scrollToBottom ]
+
+        PublicKeyLoaded () ->
+            case model.status of
+                WaitingForBKey _ connId _ ->
+                    { model | status = Ready connId NotTyping } ! [ newUrl "/" ]
+
+                WaitingForAKey connId ->
+                    { model | status = Ready connId NotTyping } ! [ newUrl "/" ]
+
+                _ ->
+                    model ! []
 
         DisplayScrollButton event ->
             case model.scroll of
@@ -147,8 +153,8 @@ update msg model =
 
                         Typing ->
                             case model.status of
-                                Ready connId key _ ->
-                                    { model | status = Ready connId key (IsTyping model.time) } ! []
+                                Ready connId _ ->
+                                    { model | status = Ready connId (IsTyping model.time) } ! []
 
                                 _ ->
                                     model ! []
@@ -172,67 +178,41 @@ update msg model =
                                 a ->
                                     model ! [ log "room unavailable, oops" a ]
 
-                        ReceiveAId (ConnId connId) ->
+                        ReceiveAId connId ->
                             case model.status of
                                 Joining myPublicKey ->
                                     let
-                                        keyData =
+                                        keyTransfer =
                                             [ ( "key", encodePublicKey myPublicKey )
                                             ]
                                                 |> Json.Encode.object
-                                                |> Json.Encode.encode 0
-
-                                        json =
-                                            [ ( "conn", Json.Encode.string connId )
-                                            , ( "data", Json.Encode.string keyData )
-                                            ]
-                                                |> Json.Encode.object
-                                                |> Json.Encode.encode 0
+                                                |> encodeDataTransmit connId
+                                                |> WebSocket.send model.wsApi
                                     in
-                                        { model | status = WaitingForAKey (ConnId connId) }
-                                            ! [ WebSocket.send model.wsApi json ]
+                                        { model | status = WaitingForAKey connId }
+                                            ! [ keyTransfer ]
 
                                 a ->
                                     model ! [ log "start, oops" a ]
 
-                        Key k ->
+                        Key theirPublicKey ->
                             case model.status of
-                                WaitingForBKey myPublicKey (ConnId connId) _ ->
+                                WaitingForBKey myPublicKey connId _ ->
                                     let
-                                        keyData =
+                                        keyTransfer =
                                             [ ( "key", encodePublicKey myPublicKey )
                                             ]
                                                 |> Json.Encode.object
-                                                |> Json.Encode.encode 0
-
-                                        json =
-                                            [ ( "conn", Json.Encode.string connId )
-                                            , ( "data", Json.Encode.string keyData )
-                                            ]
-                                                |> Json.Encode.object
-                                                |> Json.Encode.encode 0
-
-                                        theirPk =
-                                            encodePublicKey k
-                                                |> Json.Encode.encode 0
+                                                |> encodeDataTransmit connId
+                                                |> WebSocket.send model.wsApi
                                     in
-                                        { model
-                                            | status =
-                                                Ready
-                                                    (ConnId connId)
-                                                    (PublicKeyString theirPk)
-                                                    NotTyping
-                                        }
-                                            ! [ WebSocket.send model.wsApi json
-                                              , Ports.loadPublicKey theirPk
+                                        model
+                                            ! [ keyTransfer
+                                              , Ports.loadPublicKey <| encodePublicKey theirPublicKey
                                               ]
 
-                                WaitingForAKey connId ->
+                                WaitingForAKey _ ->
                                     let
-                                        theirPk =
-                                            encodePublicKey k
-                                                |> Json.Encode.encode 0
-
                                         keySpin =
                                             Animation.interrupt
                                                 [ Animation.set [ Animation.rotate (Animation.deg 0) ]
@@ -240,11 +220,9 @@ update msg model =
                                                 model.keySpin
                                     in
                                         { model
-                                            | status = Ready connId (PublicKeyString theirPk) NotTyping
-                                            , keySpin = keySpin
+                                            | keySpin = keySpin
                                         }
-                                            ! [ newUrl "/"
-                                              , Ports.loadPublicKey theirPk
+                                            ! [ Ports.loadPublicKey <| encodePublicKey theirPublicKey
                                               ]
 
                                 a ->

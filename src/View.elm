@@ -54,7 +54,7 @@ view { status, device, messages, input, keySpin, location, time, arrow } =
                     Joining _ ->
                         keySpinner
 
-                    Ready _ _ typingStatus ->
+                    Ready _ typingStatus ->
                         column Body
                             [ width <| percent 100, height <| percent 100 ]
                             [ column Body

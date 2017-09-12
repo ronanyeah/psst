@@ -70,11 +70,10 @@ crypto.generateKey(
       .catch(console.error)
     })
 
-    app.ports.loadPublicKey.subscribe(function (publicKeyString) {
-      var publicKey = JSON.parse(publicKeyString)
+    app.ports.loadPublicKey.subscribe(function (jwk) {
       return crypto.importKey(
         'jwk',
-        publicKey,
+        jwk,
         { name: 'RSA-OAEP', hash: 'SHA-256' },
         true,
         ['encrypt']
@@ -88,6 +87,7 @@ crypto.generateKey(
           )
           .then(arrayBufferToText)
         }
+        app.ports.cbLoadPublicKey.send(null)
       })
     })
 

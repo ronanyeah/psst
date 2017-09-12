@@ -22,6 +22,7 @@ type Msg
     | Send
     | CbEncrypt String
     | CbDecrypt String
+    | PublicKeyLoaded ()
     | Resize Window.Size
     | Animate Animation.Msg
     | Tick Time
@@ -84,7 +85,7 @@ type Status
     | WaitingForBKey PublicKeyRecord ConnId RoomId
     | Joining PublicKeyRecord
     | WaitingForAKey ConnId
-    | Ready ConnId PublicKeyString TypingStatus
+    | Ready ConnId TypingStatus
 
 
 type SocketMessages

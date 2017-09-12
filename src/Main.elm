@@ -35,6 +35,7 @@ subscriptions { wsApi, keySpin } =
         [ WebSocket.listen wsApi CbWebsocketMessage
         , Ports.cbEncrypt CbEncrypt
         , Ports.cbDecrypt CbDecrypt
+        , Ports.cbLoadPublicKey PublicKeyLoaded
         , Animation.subscription Animate [ keySpin ]
         , Time.every (100 * Time.millisecond) Tick
         ]
