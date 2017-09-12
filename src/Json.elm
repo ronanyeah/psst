@@ -2,7 +2,7 @@ module Json exposing (..)
 
 import Json.Decode as Decode exposing (Decoder, andThen, fail, field, list, bool, map2, map6, map, string, succeed)
 import Json.Encode as Encode exposing (Value)
-import Types exposing (..)
+import Types exposing (ConnId(..), PublicKeyRecord, RoomId(..), ScrollData, SocketMessages(..))
 
 
 decodeScrollEvent : Decoder ScrollData

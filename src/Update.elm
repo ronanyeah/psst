@@ -3,13 +3,13 @@ module Update exposing (update)
 import Animation
 import Dom.Scroll exposing (toBottom)
 import Element
-import Json exposing (..)
+import Json exposing (decodeScrollEvent, decodeSocketText, encodePublicKey)
 import Json.Decode
 import Json.Encode
 import Navigation exposing (newUrl)
 import Ports
 import Task
-import Types exposing (..)
+import Types exposing (ConnId(..), Model, Msg(..), PublicKeyString(..), SocketMessages(..), ScrollStatus(..), TypingStatus(..), Status(..))
 import WebSocket
 
 
