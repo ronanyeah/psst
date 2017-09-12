@@ -1,4 +1,5 @@
 const puppeteer = require('puppeteer')
+const assert = require('assert')
 
 ;(async () => {
   // sandbox issues: https://github.com/GoogleChrome/puppeteer/issues/290#issuecomment-322851507
@@ -20,6 +21,17 @@ const puppeteer = require('puppeteer')
   await b.waitFor('#messages')
   await a.waitFor('#messages')
 
+  await a.focus('.message-input')
+  await a.type('ronan')
+  await a.click('.send-message')
+
+  await b.waitFor('.message')
+
+  assert(await b.$eval('.message', x => x.innerText === 'ronan'))
+
   return browser.close()
 })()
-.catch(console.error)
+.catch(err => {
+  console.error(err)
+  process.exit(1)
+})

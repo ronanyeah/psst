@@ -84,6 +84,7 @@ view { status, device, messages, input, keySpin, location, time, arrow } =
                                             [ height <| px 40
                                             , width <| px <| (device.width |> toFloat |> flip (/) 4 |> (*) 3)
                                             , onPressEnter Send
+                                            , class "message-input"
                                             ]
                                             { onChange = InputChange
                                             , value = input
@@ -94,6 +95,7 @@ view { status, device, messages, input, keySpin, location, time, arrow } =
                                             [ onClick Send
                                             , width <| px <| (device.width |> toFloat |> flip (/) 4)
                                             , height <| px 40
+                                            , class "send-message"
                                             ]
                                           <|
                                             text "send"
@@ -133,7 +135,7 @@ viewTyping time status =
 
 msgCard : Message -> Element Styles Variations msg
 msgCard { self, content } =
-    paragraph MsgCard [ padding 4, vary Self self ] [ text content ]
+    paragraph MsgCard [ class "message", padding 4, vary Self self ] [ text content ]
 
 
 onScroll : (Json.Encode.Value -> msg) -> Attribute variation msg
