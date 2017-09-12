@@ -51,7 +51,7 @@ update msg model =
                             | input = ""
                             , messages = model.messages ++ [ { self = True, content = model.input } ]
                         }
-                            ! [ Ports.encrypt ( model.input, key ), scrollToBottom ]
+                            ! [ Ports.encrypt model.input, scrollToBottom ]
 
                     a ->
                         model ! [ log "send, oops" a ]
@@ -223,7 +223,9 @@ update msg model =
                                                     (PublicKeyString theirPk)
                                                     NotTyping
                                         }
-                                            ! [ WebSocket.send model.wsApi json ]
+                                            ! [ WebSocket.send model.wsApi json
+                                              , Ports.loadPublicKey theirPk
+                                              ]
 
                                 WaitingForAKey connId ->
                                     let
@@ -241,7 +243,9 @@ update msg model =
                                             | status = Ready connId (PublicKeyString theirPk) NotTyping
                                             , keySpin = keySpin
                                         }
-                                            ! [ newUrl "/" ]
+                                            ! [ newUrl "/"
+                                              , Ports.loadPublicKey theirPk
+                                              ]
 
                                 a ->
                                     model ! [ log "key swap, oops" a ]

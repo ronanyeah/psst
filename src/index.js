@@ -36,6 +36,9 @@ function arrayBufferToText (buffer) {
   )
 }
 
+// will be assigned when partner public key is received
+var encryptMessage
+
 crypto.generateKey(
   {
     name: 'RSA-OAEP',
@@ -67,29 +70,35 @@ crypto.generateKey(
       .catch(console.error)
     })
 
-    app.ports.encrypt.subscribe(function (args) {
-      var plaintext = args[0]
-      var publicKeyString = args[1]
-
+    app.ports.loadPublicKey.subscribe(function (publicKeyString) {
+      var publicKey = JSON.parse(publicKeyString)
       return crypto.importKey(
         'jwk',
-        JSON.parse(publicKeyString),
+        publicKey,
         { name: 'RSA-OAEP', hash: 'SHA-256' },
         true,
         ['encrypt']
       )
       .then(function (publicKey) {
-        return crypto.encrypt(
-          { name: 'RSA-OAEP' },
-          publicKey,
-          stringToArrayBuffer(encodeURI(plaintext))
-        )
+        encryptMessage = function (plaintext) {
+          return crypto.encrypt(
+            { name: 'RSA-OAEP' },
+            publicKey,
+            stringToArrayBuffer(encodeURI(plaintext))
+          )
+          .then(arrayBufferToText)
+        }
       })
-      .then(arrayBufferToText)
-      .then(function (encryptedText) {
-        return app.ports.cbEncrypt.send(encryptedText)
-      })
-      .catch(console.error)
+    })
+
+    app.ports.encrypt.subscribe(function (plaintext) {
+      if (!encryptMessage) return
+
+      return encryptMessage(plaintext)
+        .then(function (encryptedText) {
+          return app.ports.cbEncrypt.send(encryptedText)
+        })
+        .catch(console.error)
     })
 
   })
