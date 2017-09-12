@@ -2,7 +2,7 @@ module View exposing (view)
 
 import Animation
 import Element exposing (Attribute, Element, button, circle, column, el, empty, image, paragraph, row, text, screen, viewport, when)
-import Element.Attributes exposing (alignBottom, alignLeft, attribute, center, class, height, id, padding, px, spacing, moveUp, verticalCenter, width, percent, vary, scrollbars)
+import Element.Attributes exposing (alignBottom, alignLeft, attribute, center, class, fill, height, id, padding, px, spacing, moveUp, verticalCenter, width, percent, vary, scrollbars)
 import Element.Events exposing (on, onClick, keyCode)
 import Element.Input as Input
 import Json.Decode
@@ -24,26 +24,22 @@ view { status, device, messages, input, keySpin, location, time, arrow } =
                     ]
                 )
                 { src = "/car-key.svg", caption = "key-spinner" }
-
-        wrapBody body =
-            column Body
-                [ center, verticalCenter, width <| percent 100, height <| percent 100 ]
-                [ body ]
     in
         viewport styling <|
-            case status of
-                WaitingForBKey _ _ (RoomId roomId) ->
-                    let
-                        roomlink =
-                            location ++ "#" ++ roomId
-                    in
-                        wrapBody <|
+            column Body
+                [ height fill, width fill ]
+                [ case status of
+                    WaitingForBKey _ _ (RoomId roomId) ->
+                        let
+                            roomlink =
+                                location ++ "#" ++ roomId
+                        in
                             column None
-                                [ center ]
+                                [ center, verticalCenter, height fill, width fill, spacing 10 ]
                                 [ paragraph ShareThis
-                                    []
-                                    [ text "Share this link with someone to begin chat:" ]
-                                , paragraph Link [ padding 10 ] [ text roomlink ]
+                                    [ padding 10 ]
+                                    [ text "Share this:" ]
+                                , paragraph Link [ class "room-link", padding 10 ] [ text roomlink ]
                                 , button Button
                                     [ class "copy-button"
                                     , attribute "data-clipboard-text" roomlink
@@ -52,67 +48,70 @@ view { status, device, messages, input, keySpin, location, time, arrow } =
                                     text "COPY"
                                 ]
 
-                WaitingForAKey _ ->
-                    wrapBody <| keySpinner
+                    WaitingForAKey _ ->
+                        keySpinner
 
-                Joining _ ->
-                    wrapBody <| keySpinner
+                    Joining _ ->
+                        keySpinner
 
-                Ready _ _ typingStatus ->
-                    column Body
-                        [ width <| percent 100, height <| percent 100 ]
-                        [ column Body
-                            [ spacing 7
-                            , padding 7
-                            , id "messages"
-                            , scrollbars
-                            , onScroll DisplayScrollButton
+                    Ready _ _ typingStatus ->
+                        column Body
+                            [ width <| percent 100, height <| percent 100 ]
+                            [ column Body
+                                [ spacing 7
+                                , padding 7
+                                , id "messages"
+                                , scrollbars
+                                , onScroll DisplayScrollButton
+                                ]
+                              <|
+                                List.map msgCard messages
+                            , viewTyping time typingStatus
+                            , when arrow <|
+                                screen <|
+                                    circle 20
+                                        StartCircle
+                                        [ onClick ScrollToBottom, alignLeft, alignBottom, moveUp 40 ]
+                                        empty
+                            , el None [ height <| px 40 ] empty
+                            , screen <|
+                                el None
+                                    [ alignBottom ]
+                                <|
+                                    row None
+                                        []
+                                        [ Input.text None
+                                            [ height <| px 40
+                                            , width <| px <| (device.width |> toFloat |> flip (/) 4 |> (*) 3)
+                                            , onPressEnter Send
+                                            ]
+                                            { onChange = InputChange
+                                            , value = input
+                                            , label = Input.hiddenLabel "input"
+                                            , options = []
+                                            }
+                                        , button Button
+                                            [ onClick Send
+                                            , width <| px <| (device.width |> toFloat |> flip (/) 4)
+                                            , height <| px 40
+                                            ]
+                                          <|
+                                            text "send"
+                                        ]
                             ]
-                          <|
-                            List.map msgCard messages
-                        , viewTyping time typingStatus
-                        , when arrow <|
-                            screen <|
-                                circle 20
-                                    StartCircle
-                                    [ onClick ScrollToBottom, alignLeft, alignBottom, moveUp 40 ]
-                                    empty
-                        , el None [ height <| px 40 ] empty
-                        , screen <|
-                            el None
-                                [ alignBottom ]
-                            <|
-                                row None
-                                    []
-                                    [ Input.text None
-                                        [ height <| px 40
-                                        , width <| px <| (device.width |> toFloat |> flip (/) 4 |> (*) 3)
-                                        , onPressEnter Send
-                                        ]
-                                        { onChange = InputChange
-                                        , value = input
-                                        , label = Input.hiddenLabel "input"
-                                        , options = []
-                                        }
-                                    , button Button
-                                        [ onClick Send
-                                        , width <| px <| (device.width |> toFloat |> flip (/) 4)
-                                        , height <| px 40
-                                        ]
-                                      <|
-                                        text "send"
-                                    ]
-                        ]
 
-                Start _ ->
-                    wrapBody <|
-                        circle (device.width |> toFloat |> flip (/) 3)
-                            StartCircle
-                            [ onClick Init, center, verticalCenter ]
-                        <|
-                            el None [ center, verticalCenter ] <|
-                                text
-                                    "Start"
+                    Start _ ->
+                        column None
+                            [ center, verticalCenter, height fill ]
+                            [ circle (device.width |> toFloat |> flip (/) 3)
+                                StartCircle
+                                [ class "start-circle", onClick StartMsg ]
+                              <|
+                                el None [ center, verticalCenter ] <|
+                                    text
+                                        "Start"
+                            ]
+                ]
 
 
 viewTyping : Time -> TypingStatus -> Element Styles vars msg

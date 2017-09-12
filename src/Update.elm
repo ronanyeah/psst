@@ -3,7 +3,7 @@ module Update exposing (update)
 import Animation
 import Dom.Scroll exposing (toBottom)
 import Element
-import Json exposing (decodeScrollEvent, decodeSocketText, encodePublicKey)
+import Json exposing (decodeScrollEvent, decodeSocketText, encodeDataTransmit, encodePublicKey)
 import Json.Decode
 import Json.Encode
 import Navigation exposing (newUrl)
@@ -16,14 +16,8 @@ import WebSocket
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Init ->
-            let
-                json =
-                    Json.Encode.string "START"
-                        |> Json.Encode.encode 0
-            in
-                model
-                    ! [ WebSocket.send model.wsApi json ]
+        StartMsg ->
+            model ! [ start model.wsApi ]
 
         CbScrollToBottom _ ->
             { model | arrow = False } ! []
@@ -33,13 +27,10 @@ update msg model =
                 ( pinged, cmd ) =
                     if (model.lastTyped - model.lastTypedPing) > 4000 then
                         case model.status of
-                            Ready (ConnId connId) _ _ ->
+                            Ready connId _ _ ->
                                 ( model.time
-                                , [ ( "conn", Json.Encode.string connId )
-                                  , ( "data", Json.Encode.string ("TYPING" |> Json.Encode.string |> Json.Encode.encode 0) )
-                                  ]
-                                    |> Json.Encode.object
-                                    |> Json.Encode.encode 0
+                                , Json.Encode.string "TYPING"
+                                    |> encodeDataTransmit connId
                                     |> WebSocket.send model.wsApi
                                 )
 
@@ -226,7 +217,11 @@ update msg model =
                                                 |> Json.Encode.encode 0
                                     in
                                         { model
-                                            | status = Ready (ConnId connId) (PublicKeyString theirPk) NotTyping
+                                            | status =
+                                                Ready
+                                                    (ConnId connId)
+                                                    (PublicKeyString theirPk)
+                                                    NotTyping
                                         }
                                             ! [ WebSocket.send model.wsApi json ]
 
@@ -253,6 +248,13 @@ update msg model =
 
                 Err err ->
                     model ! [ log "socket message error" err ]
+
+
+start : String -> Cmd Msg
+start wsUrl =
+    Json.Encode.string "START"
+        |> Json.Encode.encode 0
+        |> WebSocket.send wsUrl
 
 
 isBottom : Json.Decode.Value -> ( number, Bool )

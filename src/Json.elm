@@ -1,7 +1,7 @@
 module Json exposing (..)
 
 import Json.Decode as Decode exposing (Decoder, andThen, fail, field, list, bool, map2, map6, map, string, succeed)
-import Json.Encode as Encode exposing (Value)
+import Json.Encode as Encode
 import Types exposing (ConnId(..), PublicKeyRecord, RoomId(..), ScrollData, SocketMessages(..))
 
 
@@ -13,7 +13,7 @@ decodeScrollEvent =
         (Decode.at [ "target", "clientHeight" ] Decode.int)
 
 
-encodePublicKey : PublicKeyRecord -> Value
+encodePublicKey : PublicKeyRecord -> Encode.Value
 encodePublicKey { alg, e, ext, key_ops, kty, n } =
     Encode.object
         [ ( "alg", Encode.string alg )
@@ -23,6 +23,15 @@ encodePublicKey { alg, e, ext, key_ops, kty, n } =
         , ( "kty", Encode.string kty )
         , ( "n", Encode.string n )
         ]
+
+
+encodeDataTransmit : ConnId -> Encode.Value -> String
+encodeDataTransmit (ConnId id) payload =
+    [ ( "conn", Encode.string id )
+    , ( "data", payload |> Encode.encode 0 |> Encode.string )
+    ]
+        |> Encode.object
+        |> Encode.encode 0
 
 
 decodePublicKey : Decoder PublicKeyRecord

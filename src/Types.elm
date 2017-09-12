@@ -16,7 +16,7 @@ type alias ScrollData =
 
 
 type Msg
-    = Init
+    = StartMsg
     | CbWebsocketMessage String
     | InputChange String
     | Send
@@ -77,10 +77,6 @@ type alias PublicKeyRecord =
     , kty : String
     , n : String
     }
-
-
-type alias TypingAt =
-    Time
 
 
 type Status
