@@ -19,7 +19,7 @@ var cryptoEnabled = crypto && crypto.generateKey && crypto.encrypt && crypto.dec
 
   new Clipboard('.copy-button')
 
-  crypto.generateKey(
+  return crypto.generateKey(
     {
       name: 'RSA-OAEP',
       modulusLength: 2048,
@@ -46,8 +46,8 @@ var cryptoEnabled = crypto && crypto.generateKey && crypto.encrypt && crypto.dec
 
       app.ports.share.subscribe(function (url) {
         return navigator.share({
-            title: 'Psst',
-            url: url
+          title: 'Psst',
+          url: url
         })
         .catch(alert)
       })
