@@ -22,12 +22,12 @@ const assert = require('assert')
   await a.waitFor('#messages')
 
   await a.focus('.message-input')
-  await a.type('ronan')
+  await a.type('ronan ☘️')
   await a.click('.send-message')
 
   await b.waitFor('.message')
 
-  assert(await b.$eval('.message', x => x.innerText === 'ronan'))
+  assert(await b.$eval('.message', x => x.innerText === 'ronan ☘️'))
 
   return browser.close()
 })()

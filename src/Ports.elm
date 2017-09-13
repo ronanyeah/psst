@@ -3,6 +3,9 @@ port module Ports exposing (..)
 import Json.Encode
 
 
+port share : String -> Cmd msg
+
+
 port decrypt : String -> Cmd msg
 
 

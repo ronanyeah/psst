@@ -14,7 +14,7 @@ import Types exposing (Message, Model, Msg(..), RoomId(..), Status(..), TypingSt
 
 
 view : Model -> Html Msg
-view { status, device, messages, input, keySpin, location, time, arrow } =
+view { status, device, messages, input, keySpin, location, time, arrow, shareEnabled, copyEnabled } =
     let
         keySpinner =
             image None
@@ -40,12 +40,16 @@ view { status, device, messages, input, keySpin, location, time, arrow } =
                                     [ padding 10 ]
                                     [ text "Share this:" ]
                                 , paragraph Link [ class "room-link", padding 10 ] [ text roomlink ]
-                                , button Button
-                                    [ class "copy-button"
-                                    , attribute "data-clipboard-text" roomlink
-                                    ]
-                                  <|
-                                    text "COPY"
+                                , when copyEnabled <|
+                                    button Button
+                                        [ class "copy-button"
+                                        , attribute "data-clipboard-text" roomlink
+                                        ]
+                                    <|
+                                        text "COPY"
+                                , when shareEnabled <|
+                                    button Button [ onClick <| Share roomlink ] <|
+                                        text "SHARE"
                                 ]
 
                     WaitingForAKey _ ->
@@ -113,6 +117,9 @@ view { status, device, messages, input, keySpin, location, time, arrow } =
                                     text
                                         "Start"
                             ]
+
+                    ErrorView txt ->
+                        text txt
                 ]
 
 

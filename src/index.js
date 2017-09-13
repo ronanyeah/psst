@@ -1,106 +1,95 @@
-var Clipboard = require('clipboard')
-var Elm = require('./Main.elm')
-var crypto = window.crypto.subtle || window.crypto.webkitSubtle || window.crypto.msSubtle
+// No ES6, because UglifyJS doesn't support it
+// and I can't be arsed adding Babel.
 
-if (navigator.serviceWorker) {
-  navigator.serviceWorker.register('/sw.js')
+if (window.navigator.serviceWorker) {
+  window.navigator.serviceWorker.register('/sw.js')
   .then(console.log)
   .catch(console.error)
 }
 
-if (!crypto || !crypto.generateKey || !crypto.encrypt || !crypto.decrypt || !crypto.importKey || !crypto.exportKey) {
-  alert('bad crypto')
-  throw Error('bad crypto')
-}
+var Clipboard = require('clipboard')
+var Elm = require('./Main.elm')
+var helpers = require('./helpers.js')
+var crypto = window.crypto.subtle || window.crypto.webkitSubtle || window.crypto.msSubtle
 
-new Clipboard('.copy-button')
+var cryptoEnabled = crypto && crypto.generateKey && crypto.encrypt && crypto.decrypt && crypto.importKey && crypto.exportKey
 
-var maybeRoomId = window.location.hash ? window.location.hash.substring(1) : null
-var href = window.location.origin
+;(function () {
+  if (!cryptoEnabled) return Elm.Main.fullscreen(null)
 
-// String -> ArrayBuffer
-function stringToArrayBuffer (string) {
-  return new Uint8Array(
-    string.split('')
-    .map(function (x) { return x.charCodeAt(0) })
-  )
-}
+  new Clipboard('.copy-button')
 
-// ArrayBuffer -> String
-function arrayBufferToText (buffer) {
-  return new Uint8Array(buffer).reduce(
-    function (acc, val) {
-      return acc + String.fromCharCode(val)
+  crypto.generateKey(
+    {
+      name: 'RSA-OAEP',
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+      hash: 'SHA-256'
     },
-    ''
+    true,
+    ['encrypt', 'decrypt']
   )
-}
+  .then(function (keys) {
+    return crypto.exportKey('jwk', keys.publicKey)
+    .then(function (jwk) {
 
-// will be assigned when partner public key is received
-var encryptMessage
+      var args = {
+        publicKey: jwk,
+        origin: window.location.origin,
+        wsUrl: WS_API,
+        roomId: window.location.hash ? window.location.hash.substring(1) : null,
+        shareEnabled: window.navigator.share !== undefined,
+        copyEnabled: Clipboard.isSupported()
+      }
 
-crypto.generateKey(
-  {
-    name: 'RSA-OAEP',
-    modulusLength: 2048,
-    publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-    hash: 'SHA-256'
-  },
-  true,
-  ['encrypt', 'decrypt']
-)
-.then(function (keys) {
-  return crypto.exportKey('jwk', keys.publicKey)
-  .then(function (jwk) {
+      var app = Elm.Main.fullscreen(args)
 
-    var app = Elm.Main.fullscreen([jwk, maybeRoomId, href, WS_API])
-
-    app.ports.decrypt.subscribe(function (encryptedText) {
-      return crypto.decrypt(
-        { name: 'RSA-OAEP' },
-        keys.privateKey,
-        stringToArrayBuffer(encryptedText)
-      )
-      .then(function (buffer) {
-        return decodeURI(arrayBufferToText(buffer))
+      app.ports.share.subscribe(function (url) {
+        return navigator.share({
+            title: 'Psst',
+            url: url
+        })
+        .catch(alert)
       })
-      .then(function (plaintext) {
-        return app.ports.cbDecrypt.send(plaintext)
+
+      app.ports.decrypt.subscribe(function (encryptedText) {
+        return crypto.decrypt(
+          { name: 'RSA-OAEP' },
+          keys.privateKey,
+          helpers.stringToArrayBuffer(encryptedText)
+        )
+        .then(helpers.arrayBufferToString)
+        .then(decodeURI)
+        .then(app.ports.cbDecrypt.send)
+        .catch(console.error)
       })
-      .catch(console.error)
-    })
 
-    app.ports.loadPublicKey.subscribe(function (jwk) {
-      return crypto.importKey(
-        'jwk',
-        jwk,
-        { name: 'RSA-OAEP', hash: 'SHA-256' },
-        true,
-        ['encrypt']
-      )
-      .then(function (publicKey) {
-        encryptMessage = function (plaintext) {
-          return crypto.encrypt(
-            { name: 'RSA-OAEP' },
-            publicKey,
-            stringToArrayBuffer(encodeURI(plaintext))
-          )
-          .then(arrayBufferToText)
-        }
-        app.ports.cbLoadPublicKey.send(null)
-      })
-    })
+      app.ports.loadPublicKey.subscribe(function (jwk) {
+        return crypto.importKey(
+          'jwk',
+          jwk,
+          { name: 'RSA-OAEP', hash: 'SHA-256' },
+          true,
+          ['encrypt']
+        )
+        .then(function (publicKey) {
 
-    app.ports.encrypt.subscribe(function (plaintext) {
-      if (!encryptMessage) return
+          app.ports.encrypt.subscribe(function (plaintext) {
+            return crypto.encrypt(
+              { name: 'RSA-OAEP' },
+              publicKey,
+              helpers.stringToArrayBuffer(encodeURI(plaintext))
+            )
+            .then(helpers.arrayBufferToString)
+            .then(app.ports.cbEncrypt.send)
+            .catch(console.error)
+          })
 
-      return encryptMessage(plaintext)
-        .then(function (encryptedText) {
-          return app.ports.cbEncrypt.send(encryptedText)
+          app.ports.cbLoadPublicKey.send(null)
         })
         .catch(console.error)
+      })
     })
-
   })
-})
-.catch(alert)
+  .catch(alert)
+})()

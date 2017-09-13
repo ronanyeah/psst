@@ -29,6 +29,7 @@ type Msg
     | CbScrollToBottom (Result Dom.Error ())
     | DisplayScrollButton Value
     | ScrollToBottom
+    | Share String
 
 
 type alias Model =
@@ -44,6 +45,18 @@ type alias Model =
     , time : Time
     , arrow : Bool
     , scroll : ScrollStatus
+    , shareEnabled : Bool
+    , copyEnabled : Bool
+    }
+
+
+type alias Flags =
+    { maybeRoomId : Maybe String
+    , publicKey : PublicKeyRecord
+    , origin : String
+    , wsUrl : String
+    , shareEnabled : Bool
+    , copyEnabled : Bool
     }
 
 
@@ -51,10 +64,6 @@ type alias Message =
     { self : Bool
     , content : String
     }
-
-
-type PublicKeyString
-    = PublicKeyString String
 
 
 type ConnId
@@ -86,6 +95,7 @@ type Status
     | Joining PublicKeyRecord
     | WaitingForAKey ConnId
     | Ready ConnId TypingStatus
+    | ErrorView String
 
 
 type SocketMessages

@@ -9,7 +9,7 @@ import Json.Encode
 import Navigation exposing (newUrl)
 import Ports
 import Task
-import Types exposing (ConnId(..), Model, Msg(..), PublicKeyString(..), SocketMessages(..), ScrollStatus(..), TypingStatus(..), Status(..))
+import Types exposing (ConnId(..), Model, Msg(..), SocketMessages(..), ScrollStatus(..), TypingStatus(..), Status(..))
 import WebSocket
 
 
@@ -99,6 +99,9 @@ update msg model =
 
         ScrollToBottom ->
             model ! [ scrollToBottom ]
+
+        Share url ->
+            model ! [ Ports.share url ]
 
         PublicKeyLoaded () ->
             case model.status of

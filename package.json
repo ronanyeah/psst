@@ -2,7 +2,8 @@
   "name": "psst",
   "scripts": {
     "build": "NODE_ENV=production webpack",
-    "watch": "webpack-dev-server"
+    "watch": "webpack-dev-server",
+    "test": "node test/index.js"
   },
   "author": "ronanyeah",
   "license": "GPL-3.0",

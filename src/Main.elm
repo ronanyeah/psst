@@ -1,13 +1,13 @@
 module Main exposing (main)
 
 import Animation
-import Json exposing (decodePublicKey)
+import Json exposing (decodeFlags)
 import Html
-import Json.Decode exposing (decodeValue)
+import Json.Decode exposing (decodeValue, nullable)
 import Json.Encode exposing (Value)
 import Ports
 import Task
-import Types exposing (Model, Msg(..), ScrollStatus(Static), Status(Joining, Start))
+import Types exposing (Flags, Model, Msg(..), ScrollStatus(Static), Status(..))
 import Time
 import Update exposing (update)
 import View exposing (view)
@@ -15,7 +15,7 @@ import WebSocket
 import Window
 
 
-main : Program ( Value, Maybe String, String, String ) Model Msg
+main : Program Value Model Msg
 main =
     Html.programWithFlags
         { init = init
@@ -45,74 +45,93 @@ subscriptions { wsApi, keySpin } =
 -- INIT
 
 
-init : ( Value, Maybe String, String, String ) -> ( Model, Cmd Msg )
-init ( jwk, maybeRoomId, url, wsUrl ) =
+init : Value -> ( Model, Cmd Msg )
+init =
+    decodeValue (nullable decodeFlags)
+        >> (\result ->
+                case result of
+                    Ok (Just data) ->
+                        happyPath data
+
+                    Ok Nothing ->
+                        { emptyModel
+                            | status = ErrorView "Your browser is not equipped for this sweet PWA"
+                        }
+                            ! []
+
+                    Err err ->
+                        { emptyModel | status = ErrorView err } ! []
+           )
+
+
+happyPath : Flags -> ( Model, Cmd Msg )
+happyPath { maybeRoomId, publicKey, origin, wsUrl, shareEnabled, copyEnabled } =
     let
-        myPublicKey =
-            jwk
-                |> decodeValue decodePublicKey
-                -- TODO Fail the app startup if this doesn't succeed
-                |> Result.withDefault
-                    { alg = ""
-                    , e = ""
-                    , ext = True
-                    , key_ops = []
-                    , kty = ""
-                    , n = ""
-                    }
-
-        keyStart =
-            Animation.style
-                [ Animation.rotate <| Animation.deg 0
-                ]
-
-        ( status, keySpin, cmd ) =
+        ( status, animation, cmd ) =
             case maybeRoomId of
                 Just roomId ->
-                    let
-                        spinInit =
-                            Animation.interrupt
-                                [ Animation.loop
-                                    [ Animation.to
-                                        [ Animation.rotate (Animation.turn 1) ]
-                                    ]
+                    ( Joining publicKey
+                    , animationInit
+                        |> Animation.interrupt
+                            [ Animation.loop
+                                [ Animation.to
+                                    [ Animation.rotate (Animation.turn 1) ]
                                 ]
-                                keyStart
-
-                        roomJoinRequest =
-                            Json.Encode.object [ ( "roomId", Json.Encode.string roomId ) ]
-                                |> Json.Encode.encode 0
-                                |> WebSocket.send wsUrl
-                    in
-                        ( Joining myPublicKey, spinInit, roomJoinRequest )
+                            ]
+                    , [ ( "roomId", Json.Encode.string roomId ) ]
+                        |> Json.Encode.object
+                        |> Json.Encode.encode 0
+                        |> WebSocket.send wsUrl
+                    )
 
                 Nothing ->
-                    ( Start myPublicKey
-                    , keyStart
+                    ( Start publicKey
+                    , animationInit
                     , Cmd.none
                     )
     in
-        { status = status
-        , input = ""
-        , messages = []
-        , lastTyped = 0
-        , lastTypedPing = 0
-        , location = url
-        , wsApi = wsUrl
-        , device =
-            { width = 0
-            , height = 0
-            , phone = False
-            , tablet = False
-            , desktop = False
-            , bigDesktop = False
-            , portrait = False
-            }
-        , keySpin = keySpin
-        , time = 0
-        , arrow = False
-        , scroll = Static
+        { emptyModel
+            | status = status
+            , keySpin = animation
+            , shareEnabled = shareEnabled
+            , copyEnabled = copyEnabled
+            , wsApi = wsUrl
+            , location = origin
         }
             ! [ cmd
               , Task.perform Resize Window.size
               ]
+
+
+animationInit : Animation.State
+animationInit =
+    Animation.style
+        [ Animation.rotate <| Animation.deg 0
+        ]
+
+
+emptyModel : Model
+emptyModel =
+    { status = ErrorView ""
+    , input = ""
+    , messages = []
+    , lastTyped = 0
+    , lastTypedPing = 0
+    , location = ""
+    , wsApi = ""
+    , device =
+        { width = 0
+        , height = 0
+        , phone = False
+        , tablet = False
+        , desktop = False
+        , bigDesktop = False
+        , portrait = False
+        }
+    , keySpin = animationInit
+    , time = 0
+    , arrow = False
+    , scroll = Static
+    , shareEnabled = False
+    , copyEnabled = False
+    }
