@@ -1,13 +1,16 @@
 {
-  "short_name": "psst",
-  "name": "psst",
+  "short_name": "Psst",
+  "name": "Psst",
   "icons": [
     {
-      "src": "/tux.png",
-      "type": "image/png",
-      "sizes": "144x144"
+      "src": "/antenna.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
     }
   ],
   "start_url": "/index.html",
-  "display": "fullscreen"
+  "background_color": "#00FF3D",
+  "theme_color": "#0D2818",
+  "display": "standalone"
+
 }

@@ -17,13 +17,16 @@ view : Model -> Html Msg
 view { status, device, messages, input, keySpin, location, time, arrow, shareEnabled, copyEnabled } =
     let
         keySpinner =
-            image None
-                (List.concat
-                    [ Animation.render keySpin |> List.map Element.Attributes.toAttr
-                    , [ width <| px <| (device.width |> toFloat |> flip (/) 3) ]
-                    ]
-                )
-                { src = "/car-key.svg", caption = "key-spinner" }
+            column None
+                [ center, verticalCenter, height fill ]
+                [ image None
+                    (List.concat
+                        [ Animation.render keySpin |> List.map Element.Attributes.toAttr
+                        , [ width <| px <| (device.width |> toFloat |> flip (/) 3) ]
+                        ]
+                    )
+                    { src = "/antenna.svg", caption = "key-spinner" }
+                ]
     in
         viewport styling <|
             column Body
