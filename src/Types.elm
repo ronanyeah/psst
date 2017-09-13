@@ -47,6 +47,7 @@ type alias Model =
     , scroll : ScrollStatus
     , shareEnabled : Bool
     , copyEnabled : Bool
+    , myPublicKey : PublicKeyRecord
     }
 
 
@@ -90,9 +91,9 @@ type alias PublicKeyRecord =
 
 
 type Status
-    = Start PublicKeyRecord
-    | WaitingForBKey PublicKeyRecord ConnId RoomId
-    | Joining PublicKeyRecord
+    = Start
+    | WaitingForBKey ConnId RoomId
+    | Joining
     | WaitingForAKey ConnId
     | Ready ConnId TypingStatus
     | ErrorView String

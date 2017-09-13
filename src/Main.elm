@@ -70,7 +70,7 @@ happyPath { maybeRoomId, publicKey, origin, wsUrl, shareEnabled, copyEnabled } =
         ( status, animation, cmd ) =
             case maybeRoomId of
                 Just roomId ->
-                    ( Joining publicKey
+                    ( Joining
                     , animationInit
                         |> Animation.interrupt
                             [ Animation.loop
@@ -85,7 +85,7 @@ happyPath { maybeRoomId, publicKey, origin, wsUrl, shareEnabled, copyEnabled } =
                     )
 
                 Nothing ->
-                    ( Start publicKey
+                    ( Start
                     , animationInit
                     , Cmd.none
                     )
@@ -97,6 +97,7 @@ happyPath { maybeRoomId, publicKey, origin, wsUrl, shareEnabled, copyEnabled } =
             , copyEnabled = copyEnabled
             , wsApi = wsUrl
             , location = origin
+            , myPublicKey = publicKey
         }
             ! [ cmd
               , Task.perform Resize Window.size
@@ -134,4 +135,12 @@ emptyModel =
     , scroll = Static
     , shareEnabled = False
     , copyEnabled = False
+    , myPublicKey =
+        { alg = ""
+        , e = ""
+        , ext = True
+        , key_ops = []
+        , kty = ""
+        , n = ""
+        }
     }

@@ -105,7 +105,7 @@ update msg model =
 
         PublicKeyLoaded () ->
             case model.status of
-                WaitingForBKey _ connId _ ->
+                WaitingForBKey connId _ ->
                     { model | status = Ready connId NotTyping } ! [ newUrl "/" ]
 
                 WaitingForAKey connId ->
@@ -145,8 +145,8 @@ update msg model =
                     case socketMsg of
                         Waiting bId room ->
                             case model.status of
-                                Start pk ->
-                                    { model | status = WaitingForBKey pk bId room } ! []
+                                Start ->
+                                    { model | status = WaitingForBKey bId room } ! []
 
                                 a ->
                                     model ! [ log "waiting, oops" a ]
@@ -167,9 +167,9 @@ update msg model =
 
                         RoomUnavailable ->
                             case model.status of
-                                Joining myPublicKey ->
+                                Joining ->
                                     { model
-                                        | status = Start myPublicKey
+                                        | status = Start
                                         , keySpin =
                                             Animation.interrupt
                                                 [ Animation.set [ Animation.rotate (Animation.deg 0) ]
@@ -183,10 +183,10 @@ update msg model =
 
                         ReceiveAId connId ->
                             case model.status of
-                                Joining myPublicKey ->
+                                Joining ->
                                     let
                                         keyTransfer =
-                                            [ ( "key", encodePublicKey myPublicKey )
+                                            [ ( "key", encodePublicKey model.myPublicKey )
                                             ]
                                                 |> Json.Encode.object
                                                 |> encodeDataTransmit connId
@@ -200,10 +200,10 @@ update msg model =
 
                         Key theirPublicKey ->
                             case model.status of
-                                WaitingForBKey myPublicKey connId _ ->
+                                WaitingForBKey connId _ ->
                                     let
                                         keyTransfer =
-                                            [ ( "key", encodePublicKey myPublicKey )
+                                            [ ( "key", encodePublicKey model.myPublicKey )
                                             ]
                                                 |> Json.Encode.object
                                                 |> encodeDataTransmit connId

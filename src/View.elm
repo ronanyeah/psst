@@ -32,7 +32,7 @@ view { status, device, messages, input, keySpin, location, time, arrow, shareEna
             column Body
                 [ height fill, width fill ]
                 [ case status of
-                    WaitingForBKey _ _ (RoomId roomId) ->
+                    WaitingForBKey _ (RoomId roomId) ->
                         let
                             roomlink =
                                 location ++ "#" ++ roomId
@@ -58,7 +58,7 @@ view { status, device, messages, input, keySpin, location, time, arrow, shareEna
                     WaitingForAKey _ ->
                         keySpinner
 
-                    Joining _ ->
+                    Joining ->
                         keySpinner
 
                     Ready _ typingStatus ->
@@ -109,7 +109,7 @@ view { status, device, messages, input, keySpin, location, time, arrow, shareEna
                                         ]
                             ]
 
-                    Start _ ->
+                    Start ->
                         column None
                             [ center, verticalCenter, height fill ]
                             [ circle (device.width |> toFloat |> flip (/) 3)
