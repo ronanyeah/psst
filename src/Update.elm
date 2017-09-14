@@ -27,19 +27,16 @@ update msg model =
                 InChat ({ lastTyped, lastTypedPing } as args) ->
                     let
                         ( pinged, cmd ) =
-                            if (lastTyped - lastTypedPing) > 4000 then
-                                case model.status of
-                                    InChat { connId } ->
-                                        ( model.time
-                                        , Json.Encode.string "TYPING"
-                                            |> encodeDataTransmit connId
-                                            |> WebSocket.send model.wsApi
-                                        )
+                            case ( model.status, (lastTyped - lastTypedPing) > 4000 ) of
+                                ( InChat { connId }, True ) ->
+                                    ( model.time
+                                    , Json.Encode.string "TYPING"
+                                        |> encodeDataTransmit connId
+                                        |> WebSocket.send model.wsApi
+                                    )
 
-                                    _ ->
-                                        ( lastTypedPing, Cmd.none )
-                            else
-                                ( lastTypedPing, Cmd.none )
+                                _ ->
+                                    ( lastTypedPing, Cmd.none )
                     in
                         { model
                             | status =
