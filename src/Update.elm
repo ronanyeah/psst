@@ -23,45 +23,63 @@ update msg model =
             { model | arrow = False } ! []
 
         InputChange str ->
-            let
-                ( pinged, cmd ) =
-                    if (model.lastTyped - model.lastTypedPing) > 4000 then
-                        case model.status of
-                            Ready connId _ ->
-                                ( model.time
-                                , Json.Encode.string "TYPING"
-                                    |> encodeDataTransmit connId
-                                    |> WebSocket.send model.wsApi
-                                )
+            case model.status of
+                InChat ({ lastTyped, lastTypedPing } as args) ->
+                    let
+                        ( pinged, cmd ) =
+                            if (lastTyped - lastTypedPing) > 4000 then
+                                case model.status of
+                                    InChat { connId } ->
+                                        ( model.time
+                                        , Json.Encode.string "TYPING"
+                                            |> encodeDataTransmit connId
+                                            |> WebSocket.send model.wsApi
+                                        )
 
-                            _ ->
-                                ( model.lastTypedPing, Cmd.none )
-                    else
-                        ( model.lastTypedPing, Cmd.none )
-            in
-                { model | input = str, lastTyped = model.time, lastTypedPing = pinged } ! [ cmd ]
+                                    _ ->
+                                        ( lastTypedPing, Cmd.none )
+                            else
+                                ( lastTypedPing, Cmd.none )
+                    in
+                        { model
+                            | status =
+                                InChat
+                                    { args
+                                        | input = str
+                                        , lastTyped = model.time
+                                        , lastTypedPing = pinged
+                                    }
+                        }
+                            ! [ cmd ]
+
+                _ ->
+                    model ! []
 
         Send ->
-            if String.isEmpty model.input then
-                model ! []
-            else
-                case model.status of
-                    Ready _ _ ->
+            case model.status of
+                InChat ({ input, messages } as args) ->
+                    if String.isEmpty input then
+                        model ! []
+                    else
                         { model
-                            | input = ""
-                            , messages = model.messages ++ [ { self = True, content = model.input } ]
+                            | status =
+                                InChat
+                                    { args
+                                        | input = ""
+                                        , messages = messages ++ [ { self = True, content = input } ]
+                                    }
                         }
-                            ! [ Ports.encrypt model.input, scrollToBottom ]
+                            ! [ Ports.encrypt input, scrollToBottom ]
 
-                    a ->
-                        model ! [ log "send, oops" a ]
+                _ ->
+                    model ! []
 
         Resize size ->
             { model | device = Element.classifyDevice size } ! []
 
         CbEncrypt txt ->
             case model.status of
-                Ready connId _ ->
+                InChat { connId } ->
                     let
                         messageTransfer =
                             [ ( "message", Json.Encode.string txt )
@@ -78,10 +96,14 @@ update msg model =
 
         CbDecrypt txt ->
             case model.status of
-                Ready connId _ ->
+                InChat ({ messages } as args) ->
                     { model
-                        | messages = model.messages ++ [ { self = False, content = txt } ]
-                        , status = Ready connId NotTyping
+                        | status =
+                            InChat
+                                { args
+                                    | messages = messages ++ [ { self = False, content = txt } ]
+                                    , typingStatus = NotTyping
+                                }
                     }
                         ! [ scrollToBottom ]
 
@@ -105,11 +127,35 @@ update msg model =
 
         PublicKeyLoaded () ->
             case model.status of
-                WaitingForBKey connId _ ->
-                    { model | status = Ready connId NotTyping } ! [ newUrl "/" ]
+                AWaitingForBKey connId _ ->
+                    { model
+                        | status =
+                            InChat
+                                { connId = connId
+                                , typingStatus = NotTyping
+                                , messages = []
+                                , lastTyped = 0
+                                , lastTypedPing = 0
+                                , isLive = True
+                                , input = ""
+                                }
+                    }
+                        ! [ newUrl "/" ]
 
-                WaitingForAKey connId ->
-                    { model | status = Ready connId NotTyping } ! [ newUrl "/" ]
+                BWaitingForAKey connId ->
+                    { model
+                        | status =
+                            InChat
+                                { connId = connId
+                                , typingStatus = NotTyping
+                                , messages = []
+                                , lastTyped = 0
+                                , lastTypedPing = 0
+                                , isLive = True
+                                , input = ""
+                                }
+                    }
+                        ! [ newUrl "/" ]
 
                 _ ->
                     model ! []
@@ -146,7 +192,7 @@ update msg model =
                         Waiting bId room ->
                             case model.status of
                                 Start ->
-                                    { model | status = WaitingForBKey bId room } ! []
+                                    { model | status = AWaitingForBKey bId room } ! []
 
                                 a ->
                                     model ! [ log "waiting, oops" a ]
@@ -156,8 +202,15 @@ update msg model =
 
                         Typing ->
                             case model.status of
-                                Ready connId _ ->
-                                    { model | status = Ready connId (IsTyping model.time) } ! []
+                                InChat args ->
+                                    { model
+                                        | status =
+                                            InChat { args | typingStatus = IsTyping model.time }
+                                    }
+                                        ! []
+
+                                _ ->
+                                    model ! []
 
                                 _ ->
                                     model ! []
@@ -167,7 +220,7 @@ update msg model =
 
                         RoomUnavailable ->
                             case model.status of
-                                Joining ->
+                                BJoining ->
                                     { model
                                         | status = Start
                                         , keySpin =
@@ -183,7 +236,7 @@ update msg model =
 
                         ReceiveAId connId ->
                             case model.status of
-                                Joining ->
+                                BJoining ->
                                     let
                                         keyTransfer =
                                             [ ( "key", encodePublicKey model.myPublicKey )
@@ -192,7 +245,7 @@ update msg model =
                                                 |> encodeDataTransmit connId
                                                 |> WebSocket.send model.wsApi
                                     in
-                                        { model | status = WaitingForAKey connId }
+                                        { model | status = BWaitingForAKey connId }
                                             ! [ keyTransfer ]
 
                                 a ->
@@ -200,7 +253,7 @@ update msg model =
 
                         Key theirPublicKey ->
                             case model.status of
-                                WaitingForBKey connId _ ->
+                                AWaitingForBKey connId _ ->
                                     let
                                         keyTransfer =
                                             [ ( "key", encodePublicKey model.myPublicKey )
@@ -214,7 +267,7 @@ update msg model =
                                               , Ports.loadPublicKey <| encodePublicKey theirPublicKey
                                               ]
 
-                                WaitingForAKey _ ->
+                                BWaitingForAKey _ ->
                                     let
                                         keySpin =
                                             Animation.interrupt

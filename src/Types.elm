@@ -34,10 +34,6 @@ type Msg
 
 type alias Model =
     { status : Status
-    , messages : List Message
-    , input : String
-    , lastTyped : Time
-    , lastTypedPing : Time
     , location : String
     , wsApi : String
     , device : Element.Device
@@ -92,11 +88,22 @@ type alias PublicKeyRecord =
 
 type Status
     = Start
-    | WaitingForBKey ConnId RoomId
-    | Joining
-    | WaitingForAKey ConnId
-    | Ready ConnId TypingStatus
+    | AWaitingForBKey ConnId RoomId
+    | BJoining
+    | BWaitingForAKey ConnId
+    | InChat ChatArgs
     | ErrorView String
+
+
+type alias ChatArgs =
+    { connId : ConnId
+    , typingStatus : TypingStatus
+    , messages : List Message
+    , lastTyped : Time
+    , lastTypedPing : Time
+    , isLive : Bool
+    , input : String
+    }
 
 
 type SocketMessages

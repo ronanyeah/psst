@@ -14,7 +14,7 @@ import Types exposing (Message, Model, Msg(..), RoomId(..), Status(..), TypingSt
 
 
 view : Model -> Html Msg
-view { status, device, messages, input, keySpin, location, time, arrow, shareEnabled, copyEnabled } =
+view { status, device, keySpin, location, time, arrow, shareEnabled, copyEnabled } =
     let
         keySpinner =
             column None
@@ -32,7 +32,7 @@ view { status, device, messages, input, keySpin, location, time, arrow, shareEna
             column Body
                 [ height fill, width fill ]
                 [ case status of
-                    WaitingForBKey _ (RoomId roomId) ->
+                    AWaitingForBKey _ (RoomId roomId) ->
                         let
                             roomlink =
                                 location ++ "#" ++ roomId
@@ -55,13 +55,13 @@ view { status, device, messages, input, keySpin, location, time, arrow, shareEna
                                         text "SHARE"
                                 ]
 
-                    WaitingForAKey _ ->
+                    BWaitingForAKey _ ->
                         keySpinner
 
-                    Joining ->
+                    BJoining ->
                         keySpinner
 
-                    Ready _ typingStatus ->
+                    InChat { typingStatus, messages, input } ->
                         column Body
                             [ width <| percent 100, height <| percent 100 ]
                             [ column Body

@@ -70,7 +70,7 @@ happyPath { maybeRoomId, publicKey, origin, wsUrl, shareEnabled, copyEnabled } =
         ( status, animation, cmd ) =
             case maybeRoomId of
                 Just roomId ->
-                    ( Joining
+                    ( BJoining
                     , animationInit
                         |> Animation.interrupt
                             [ Animation.loop
@@ -114,10 +114,6 @@ animationInit =
 emptyModel : Model
 emptyModel =
     { status = ErrorView ""
-    , input = ""
-    , messages = []
-    , lastTyped = 0
-    , lastTypedPing = 0
     , location = ""
     , wsApi = ""
     , device =
