@@ -32,7 +32,7 @@ module.exports = {
   },
   plugins: [
     new webpack.DefinePlugin({
-      WS_API: JSON.stringify(process.env.WS_API || 'ws://localhost:3000')
+      WS_API: JSON.stringify(process.env.WS_API)
     }),
     ...PROD
       ? [ new webpack.optimize.UglifyJsPlugin() ]
