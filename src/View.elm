@@ -79,6 +79,7 @@ view { status, device, keySpin, location, time, arrow, shareEnabled, copyEnabled
                                     [ onClick ExitChat
                                     , width <| px <| (device.width |> toFloat |> flip (/) 4)
                                     , height <| px 40
+                                    , center
                                     ]
                                 <|
                                     text "EXIT"
