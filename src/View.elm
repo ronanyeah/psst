@@ -110,13 +110,15 @@ view { status, device, keySpin, location, time, arrow, shareEnabled, copyEnabled
                                             ]
                             , when (not isLive) <|
                                 screen <|
-                                    el None
-                                        [ alignBottom ]
+                                    el DeadConn
+                                        [ alignBottom, width fill, height <| px 40 ]
                                     <|
-                                        row DeadConn
-                                            [ center ]
-                                            [ text "LOST CONNECTION"
+                                        el None
+                                            [ center
+                                            , verticalCenter
                                             ]
+                                        <|
+                                            text "LOST CONNECTION"
                             ]
 
                     Start ->
