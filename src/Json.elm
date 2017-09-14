@@ -111,6 +111,9 @@ decodeEnum =
                     "TYPING" ->
                         succeed Typing
 
+                    "DEAD" ->
+                        succeed ConnectionDead
+
                     a ->
                         fail ("enum: \"" ++ a ++ "\" not recognised")
             )

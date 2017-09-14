@@ -10,6 +10,7 @@ import Style.Border as Border
 type Styles
     = Button
     | Body
+    | DeadConn
     | Link
     | MsgCard
     | None
@@ -66,6 +67,7 @@ styling =
     styleSheet
         [ style None []
         , style Body [ Color.background grn, font ]
+        , style DeadConn [ Color.background red, font ]
         , style Link [ Color.background ylw ]
         , style MsgCard
             [ Color.background ylw

@@ -114,6 +114,7 @@ type SocketMessages
     | Key PublicKeyRecord
     | RoomUnavailable
     | Typing
+    | ConnectionDead
 
 
 type ScrollStatus

@@ -61,7 +61,7 @@ view { status, device, keySpin, location, time, arrow, shareEnabled, copyEnabled
                     BJoining ->
                         keySpinner
 
-                    InChat { typingStatus, messages, input } ->
+                    InChat { typingStatus, messages, input, isLive } ->
                         column Body
                             [ width <| percent 100, height <| percent 100 ]
                             [ column Body
@@ -81,32 +81,42 @@ view { status, device, keySpin, location, time, arrow, shareEnabled, copyEnabled
                                         [ onClick ScrollToBottom, alignLeft, alignBottom, moveUp 40 ]
                                         empty
                             , el None [ height <| px 40 ] empty
-                            , screen <|
-                                el None
-                                    [ alignBottom ]
-                                <|
-                                    row None
-                                        []
-                                        [ Input.text None
-                                            [ height <| px 40
-                                            , width <| px <| (device.width |> toFloat |> flip (/) 4 |> (*) 3)
-                                            , onPressEnter Send
-                                            , class "message-input"
+                            , when isLive <|
+                                screen <|
+                                    el None
+                                        [ alignBottom ]
+                                    <|
+                                        row None
+                                            []
+                                            [ Input.text None
+                                                [ height <| px 40
+                                                , width <| px <| (device.width |> toFloat |> flip (/) 4 |> (*) 3)
+                                                , onPressEnter Send
+                                                , class "message-input"
+                                                ]
+                                                { onChange = InputChange
+                                                , value = input
+                                                , label = Input.hiddenLabel "input"
+                                                , options = []
+                                                }
+                                            , button Button
+                                                [ onClick Send
+                                                , width <| px <| (device.width |> toFloat |> flip (/) 4)
+                                                , height <| px 40
+                                                , class "send-message"
+                                                ]
+                                              <|
+                                                text "send"
                                             ]
-                                            { onChange = InputChange
-                                            , value = input
-                                            , label = Input.hiddenLabel "input"
-                                            , options = []
-                                            }
-                                        , button Button
-                                            [ onClick Send
-                                            , width <| px <| (device.width |> toFloat |> flip (/) 4)
-                                            , height <| px 40
-                                            , class "send-message"
+                            , when (not isLive) <|
+                                screen <|
+                                    el None
+                                        [ alignBottom ]
+                                    <|
+                                        row DeadConn
+                                            [ center ]
+                                            [ text "LOST CONNECTION"
                                             ]
-                                          <|
-                                            text "send"
-                                        ]
                             ]
 
                     Start ->

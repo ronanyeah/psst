@@ -212,6 +212,15 @@ update msg model =
                                 _ ->
                                     model ! []
 
+                        ConnectionDead ->
+                            case model.status of
+                                InChat args ->
+                                    { model
+                                        | status =
+                                            InChat { args | isLive = False }
+                                    }
+                                        ! []
+
                                 _ ->
                                     model ! []
 
