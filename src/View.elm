@@ -14,7 +14,7 @@ import Types exposing (Message, Model, Msg(..), RoomId(..), Status(..), TypingSt
 
 
 view : Model -> Html Msg
-view { status, device, keySpin, location, time, arrow, shareEnabled, copyEnabled } =
+view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled } =
     let
         keySpinner =
             column None
@@ -35,7 +35,7 @@ view { status, device, keySpin, location, time, arrow, shareEnabled, copyEnabled
                     AWaitingForBKey _ (RoomId roomId) ->
                         let
                             roomlink =
-                                location ++ "#" ++ roomId
+                                origin ++ "#" ++ roomId
                         in
                             column None
                                 [ center, verticalCenter, height fill, width fill, spacing 10 ]

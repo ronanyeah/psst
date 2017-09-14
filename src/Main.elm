@@ -96,7 +96,7 @@ happyPath { maybeRoomId, publicKey, origin, wsUrl, shareEnabled, copyEnabled } =
             , shareEnabled = shareEnabled
             , copyEnabled = copyEnabled
             , wsApi = wsUrl
-            , location = origin
+            , origin = origin
             , myPublicKey = publicKey
         }
             ! [ cmd
@@ -114,7 +114,7 @@ animationInit =
 emptyModel : Model
 emptyModel =
     { status = ErrorView ""
-    , location = ""
+    , origin = ""
     , wsApi = ""
     , device =
         { width = 0

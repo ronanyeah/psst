@@ -35,7 +35,7 @@ type Msg
 
 type alias Model =
     { status : Status
-    , location : String
+    , origin : String
     , wsApi : String
     , device : Element.Device
     , keySpin : Animation.State
