@@ -111,7 +111,7 @@ view { status, device, keySpin, location, time, arrow, shareEnabled, copyEnabled
                             , when (not isLive) <|
                                 screen <|
                                     el DeadConn
-                                        [ alignBottom, width fill, height <| px 40 ]
+                                        [ class "conn-lost", alignBottom, width fill, height <| px 40 ]
                                     <|
                                         el None
                                             [ center

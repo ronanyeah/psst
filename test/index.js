@@ -32,6 +32,14 @@ const assert = require('assert')
 
   assert(await b.$eval('.message', x => x.innerText === 'ronan ☘️'))
 
+  await b.close()
+
+  await a.focus('.message-input')
+  await a.type('x')
+  await a.click('.send-message')
+
+  await a.waitFor('.conn-lost')
+
   return browser.close()
 })()
 .catch(err => {
