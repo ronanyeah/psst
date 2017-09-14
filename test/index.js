@@ -23,6 +23,9 @@ const assert = require('assert')
 
   await a.focus('.message-input')
   await a.type('ronan ☘️')
+
+  await b.waitFor('.typing')
+
   await a.click('.send-message')
 
   await b.waitFor('.message')

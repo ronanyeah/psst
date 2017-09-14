@@ -148,7 +148,7 @@ viewTyping time status =
                 )
             <|
                 image None
-                    []
+                    [ class "typing" ]
                     { src = "/typing.svg", caption = "is-typing" }
 
         NotTyping ->
