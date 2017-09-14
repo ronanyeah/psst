@@ -22,6 +22,7 @@ type Msg
     | Send
     | CbEncrypt String
     | CbDecrypt String
+    | ExitChat
     | PublicKeyLoaded ()
     | Resize Window.Size
     | Animate Animation.Msg

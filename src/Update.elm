@@ -126,6 +126,9 @@ update msg model =
         Share url ->
             model ! [ Ports.share url ]
 
+        ExitChat ->
+            { model | status = Start } ! []
+
         PublicKeyLoaded () ->
             case model.status of
                 AWaitingForBKey connId _ ->
