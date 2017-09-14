@@ -67,6 +67,7 @@ update msg model =
                                     { args
                                         | input = ""
                                         , messages = messages ++ [ { self = True, content = input } ]
+                                        , lastTypedPing = 0
                                     }
                         }
                             ! [ Ports.encrypt input, scrollToBottom ]
