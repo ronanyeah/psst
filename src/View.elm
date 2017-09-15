@@ -90,44 +90,44 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
                                         [ onClick ScrollToBottom, alignLeft, alignBottom, moveUp 40 ]
                                         empty
                             , el None [ height <| px 40 ] empty
-                            , when isLive <|
-                                screen <|
-                                    el None
-                                        [ alignBottom ]
-                                    <|
-                                        row None
-                                            []
-                                            [ Input.text None
-                                                [ height <| px 40
-                                                , width <| px <| (device.width |> toFloat |> flip (/) 4 |> (*) 3)
-                                                , onPressEnter Send
-                                                , class "message-input"
-                                                ]
-                                                { onChange = InputChange
-                                                , value = input
-                                                , label = Input.hiddenLabel "input"
-                                                , options = []
-                                                }
-                                            , button Button
+                            , screen <|
+                                el None
+                                    [ alignBottom ]
+                                <|
+                                    row None
+                                        []
+                                        [ Input.text None
+                                            [ height <| px 40
+                                            , width <| px <| (device.width |> toFloat |> flip (/) 4 |> (*) 3)
+                                            , onPressEnter Send
+                                            , class "message-input"
+                                            ]
+                                            { onChange = InputChange
+                                            , value = input
+                                            , label = Input.hiddenLabel "input"
+                                            , options =
+                                                if isLive then
+                                                    []
+                                                else
+                                                    [ Input.disabled ]
+                                            }
+                                        , if isLive then
+                                            button Button
                                                 [ onClick Send
                                                 , width <| px <| (device.width |> toFloat |> flip (/) 4)
                                                 , height <| px 40
                                                 , class "send-message"
                                                 ]
-                                              <|
+                                            <|
                                                 text "send"
-                                            ]
-                            , when (not isLive) <|
-                                screen <|
-                                    el DeadConn
-                                        [ class "conn-lost", alignBottom, width fill, height <| px 40 ]
-                                    <|
-                                        el None
-                                            [ center
-                                            , verticalCenter
-                                            ]
-                                        <|
-                                            text "LOST CONNECTION"
+                                          else
+                                            button Button
+                                                [ width <| px <| (device.width |> toFloat |> flip (/) 4)
+                                                , height <| px 40
+                                                ]
+                                            <|
+                                                text "OOPS"
+                                        ]
                             ]
 
                     Start ->
