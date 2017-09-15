@@ -1,5 +1,5 @@
-// No ES6, because UglifyJS doesn't support it
-// and I can't be arsed adding Babel.
+// No ES6, because UglifyJS doesn't support it yet.
+// https://stackoverflow.com/a/45088328/4224679
 
 if (window.navigator.serviceWorker) {
   window.navigator.serviceWorker.register('/sw.js')
