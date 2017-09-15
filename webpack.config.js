@@ -20,14 +20,20 @@ module.exports = {
     rules: [{
       test: /\.elm$/,
       exclude: [/elm-stuff/, /node_modules/],
-      use: {
-        loader: 'elm-webpack-loader',
-        options: {
-          cwd: __dirname,
-          debug: !PROD,
-          warn: !PROD
+      use: [
+        ...PROD
+          ? []
+          : [{ loader: 'elm-hot-loader' }],
+        {
+          loader: 'elm-webpack-loader',
+          options: {
+            cwd: __dirname,
+            debug: false,
+            //debug: !PROD,
+            warn: !PROD
+          }
         }
-      }
+      ]
     }]
   },
   plugins: [
@@ -36,6 +42,8 @@ module.exports = {
     }),
     ...PROD
       ? [ new webpack.optimize.UglifyJsPlugin() ]
-      : []
+      : [ new webpack.NamedModulesPlugin(),
+          new webpack.NoEmitOnErrorsPlugin()
+        ]
   ]
 }
