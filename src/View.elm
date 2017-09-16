@@ -10,7 +10,7 @@ import Json.Encode
 import Html exposing (Html)
 import Styling exposing (Styles(..), Variations(..), styling)
 import Time exposing (Time)
-import Types exposing (Message, Model, Msg(..), RoomId(..), Status(..), TypingStatus(..))
+import Types exposing (Message(..), MessageType(..), Model, Msg(..), RoomId(..), Status(..), TypingStatus(..))
 
 
 view : Model -> Html Msg
@@ -126,7 +126,7 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
                                                 , height <| px 40
                                                 ]
                                             <|
-                                                text "OOPS"
+                                                text "🚫"
                                         ]
                             ]
 
@@ -165,8 +165,16 @@ viewTyping time status =
 
 
 msgCard : Message -> Element Styles Variations msg
-msgCard { self, content } =
-    paragraph MsgCard [ class "message", padding 4, vary Self self ] [ text content ]
+msgCard (Message msgType content) =
+    case msgType of
+        Self ->
+            paragraph MsgSelf [ class "message", padding 4 ] [ text content ]
+
+        Them ->
+            paragraph MsgThem [ class "message", padding 4 ] [ text content ]
+
+        System ->
+            paragraph MsgSys [ class "message", padding 4 ] [ text content ]
 
 
 onScroll : (Json.Encode.Value -> msg) -> Attribute variation msg

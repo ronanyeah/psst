@@ -12,14 +12,16 @@ type Styles
     | Body
     | DeadConn
     | Link
-    | MsgCard
+    | MsgSelf
+    | MsgThem
+    | MsgSys
     | None
     | StartCircle
     | ShareThis
 
 
 type Variations
-    = Self
+    = Cool
 
 
 font : Style.Property class variation
@@ -69,11 +71,20 @@ styling =
         , style Body [ Color.background grn, font ]
         , style DeadConn [ Color.background red, font ]
         , style Link [ Color.background ylw ]
-        , style MsgCard
+        , style MsgThem
             [ Color.background ylw
             , Font.size 35
             , Font.alignLeft
-            , variation Self [ Color.background org, Font.alignRight ]
+            ]
+        , style MsgSelf
+            [ Color.background org
+            , Font.size 35
+            , Font.alignRight
+            ]
+        , style MsgSys
+            [ Color.background pnk
+            , Font.size 35
+            , Font.center
             ]
         , style ShareThis [ Color.background blu, Font.size 20 ]
         , style StartCircle

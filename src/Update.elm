@@ -9,7 +9,7 @@ import Json.Encode
 import Navigation exposing (newUrl)
 import Ports
 import Task
-import Types exposing (ConnId(..), Model, Msg(..), SocketMessages(..), ScrollStatus(..), TypingStatus(..), Status(..))
+import Types exposing (ConnId(..), Message(..), MessageType(..), Model, Msg(..), SocketMessages(..), ScrollStatus(..), TypingStatus(..), Status(..))
 import WebSocket
 
 
@@ -63,7 +63,7 @@ update msg model =
                                 InChat
                                     { args
                                         | input = ""
-                                        , messages = messages ++ [ { self = True, content = input } ]
+                                        , messages = messages ++ [ Message Self input ]
                                         , lastTypedPing = 0
                                     }
                         }
@@ -99,7 +99,7 @@ update msg model =
                         | status =
                             InChat
                                 { args
-                                    | messages = messages ++ [ { self = False, content = txt } ]
+                                    | messages = messages ++ [ Message Them txt ]
                                     , typingStatus = NotTyping
                                 }
                     }

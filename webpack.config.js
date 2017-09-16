@@ -41,7 +41,8 @@ module.exports = {
       WS_API: JSON.stringify(process.env.WS_API)
     }),
     ...PROD
-      ? [ new webpack.optimize.UglifyJsPlugin() ]
+      ? [ new webpack.optimize.UglifyJsPlugin()
+        ]
       : [ new webpack.NamedModulesPlugin(),
           new webpack.NoEmitOnErrorsPlugin()
         ]

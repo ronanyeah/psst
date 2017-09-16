@@ -58,10 +58,14 @@ type alias Flags =
     }
 
 
-type alias Message =
-    { self : Bool
-    , content : String
-    }
+type Message
+    = Message MessageType String
+
+
+type MessageType
+    = Self
+    | Them
+    | System
 
 
 type ConnId
