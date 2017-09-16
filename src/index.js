@@ -16,7 +16,7 @@ var flags = {
   origin: window.location.origin,
   wsUrl: WS_API,
   maybeRoomId: window.location.hash ? window.location.hash.substring(1) : null,
-  shareEnabled: window.navigator.share !== undefined,
+  shareEnabled: typeof window.navigator.share === 'function',
   copyEnabled: Clipboard.isSupported()
 }
 
