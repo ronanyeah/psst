@@ -1,13 +1,13 @@
 module Main exposing (main)
 
 import Animation
-import Json exposing (decodeFlags)
+import Json exposing (decodePublicKey)
 import Html
-import Json.Decode exposing (decodeValue, nullable)
+import Json.Decode exposing (decodeValue)
 import Json.Encode exposing (Value)
 import Ports
 import Task
-import Types exposing (Flags, Model, Msg(..), ScrollStatus(Static), Status(..))
+import Types exposing (Flags, Model, Msg(..), PublicKeyRecord, ScrollStatus(Static), Status(..))
 import Time
 import Update exposing (update)
 import View exposing (view)
@@ -15,7 +15,7 @@ import WebSocket
 import Window
 
 
-main : Program Value Model Msg
+main : Program ( Value, Flags ) Model Msg
 main =
     Html.programWithFlags
         { init = init
@@ -45,27 +45,20 @@ subscriptions { wsApi, keySpin } =
 -- INIT
 
 
-init : Value -> ( Model, Cmd Msg )
-init =
-    decodeValue (nullable decodeFlags)
-        >> (\result ->
-                case result of
-                    Ok (Just data) ->
-                        happyPath data
-
-                    Ok Nothing ->
-                        { emptyModel
-                            | status = ErrorView "Your browser is not equipped for this sweet PWA"
-                        }
-                            ! []
-
-                    Err err ->
-                        { emptyModel | status = ErrorView err } ! []
-           )
+init : ( Value, Flags ) -> ( Model, Cmd Msg )
+init ( jwk, flags ) =
+    decodeValue decodePublicKey jwk
+        |> Result.map (happyPath flags)
+        |> Result.withDefault
+            ({ emptyModel
+                | status = ErrorView "Your browser is not equipped for this sweet PWA"
+             }
+                ! []
+            )
 
 
-happyPath : Flags -> ( Model, Cmd Msg )
-happyPath { maybeRoomId, publicKey, origin, wsUrl, shareEnabled, copyEnabled } =
+happyPath : Flags -> PublicKeyRecord -> ( Model, Cmd Msg )
+happyPath { maybeRoomId, origin, wsUrl, shareEnabled, copyEnabled } publicKey =
     let
         model =
             { emptyModel

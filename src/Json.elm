@@ -2,18 +2,7 @@ module Json exposing (..)
 
 import Json.Decode as Decode exposing (Decoder, andThen, fail, field, list, bool, map2, map6, map, string, succeed)
 import Json.Encode as Encode
-import Types exposing (ConnId(..), Flags, PublicKeyRecord, RoomId(..), ScrollData, SocketMessages(..))
-
-
-decodeFlags : Decoder Flags
-decodeFlags =
-    map6 Flags
-        (field "roomId" (Decode.nullable string))
-        (field "publicKey" decodePublicKey)
-        (field "origin" string)
-        (field "wsUrl" string)
-        (field "shareEnabled" bool)
-        (field "copyEnabled" bool)
+import Types exposing (ConnId(..), PublicKeyRecord, RoomId(..), ScrollData, SocketMessages(..))
 
 
 decodeScrollEvent : Decoder ScrollData

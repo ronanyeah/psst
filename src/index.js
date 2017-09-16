@@ -12,10 +12,18 @@ var Elm = require('./Main.elm')
 var helpers = require('./helpers.js')
 var crypto = window.crypto.subtle || window.crypto.webkitSubtle || window.crypto.msSubtle
 
+var flags = {
+  origin: window.location.origin,
+  wsUrl: WS_API,
+  maybeRoomId: window.location.hash ? window.location.hash.substring(1) : null,
+  shareEnabled: window.navigator.share !== undefined,
+  copyEnabled: Clipboard.isSupported()
+}
+
 var cryptoEnabled = crypto && crypto.generateKey && crypto.encrypt && crypto.decrypt && crypto.importKey && crypto.exportKey
 
 ;(function () {
-  if (!cryptoEnabled) return Elm.Main.fullscreen(null)
+  if (!cryptoEnabled) return Elm.Main.fullscreen([null, flags])
 
   new Clipboard('.copy-button')
 
@@ -33,16 +41,7 @@ var cryptoEnabled = crypto && crypto.generateKey && crypto.encrypt && crypto.dec
     return crypto.exportKey('jwk', keys.publicKey)
     .then(function (jwk) {
 
-      var args = {
-        publicKey: jwk,
-        origin: window.location.origin,
-        wsUrl: WS_API,
-        roomId: window.location.hash ? window.location.hash.substring(1) : null,
-        shareEnabled: window.navigator.share !== undefined,
-        copyEnabled: Clipboard.isSupported()
-      }
-
-      var app = Elm.Main.fullscreen(args)
+      var app = Elm.Main.fullscreen([jwk, flags])
 
       app.ports.share.subscribe(function (url) {
         return navigator.share({

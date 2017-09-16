@@ -50,7 +50,6 @@ type alias Model =
 
 type alias Flags =
     { maybeRoomId : Maybe String
-    , publicKey : PublicKeyRecord
     , origin : String
     , wsUrl : String
     , shareEnabled : Bool
