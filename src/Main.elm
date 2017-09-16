@@ -67,48 +67,40 @@ init =
 happyPath : Flags -> ( Model, Cmd Msg )
 happyPath { maybeRoomId, publicKey, origin, wsUrl, shareEnabled, copyEnabled } =
     let
-        ( status, animation, cmd ) =
-            case maybeRoomId of
-                Just roomId ->
-                    ( BJoining
-                    , animationInit
-                        |> Animation.interrupt
-                            [ Animation.loop
-                                [ Animation.to
-                                    [ Animation.rotate (Animation.turn 1) ]
-                                ]
-                            ]
-                    , [ ( "roomId", Json.Encode.string roomId ) ]
-                        |> Json.Encode.object
-                        |> Json.Encode.encode 0
-                        |> WebSocket.send wsUrl
-                    )
-
-                Nothing ->
-                    ( Start
-                    , animationInit
-                    , Cmd.none
-                    )
+        model =
+            { emptyModel
+                | shareEnabled = shareEnabled
+                , copyEnabled = copyEnabled
+                , wsApi = wsUrl
+                , origin = origin
+                , myPublicKey = publicKey
+            }
     in
-        { emptyModel
-            | status = status
-            , keySpin = animation
-            , shareEnabled = shareEnabled
-            , copyEnabled = copyEnabled
-            , wsApi = wsUrl
-            , origin = origin
-            , myPublicKey = publicKey
-        }
-            ! [ cmd
-              , Task.perform Resize Window.size
-              ]
+        case maybeRoomId of
+            Just roomId ->
+                { model
+                    | status = BJoining
+                    , keySpin =
+                        model.keySpin
+                            |> Animation.interrupt
+                                [ Animation.loop
+                                    [ Animation.to
+                                        [ Animation.rotate (Animation.turn 1) ]
+                                    ]
+                                ]
+                }
+                    ! [ [ ( "roomId", Json.Encode.string roomId ) ]
+                            |> Json.Encode.object
+                            |> Json.Encode.encode 0
+                            |> WebSocket.send wsUrl
+                      , Task.perform Resize Window.size
+                      ]
 
-
-animationInit : Animation.State
-animationInit =
-    Animation.style
-        [ Animation.rotate <| Animation.deg 0
-        ]
+            Nothing ->
+                { model
+                    | status = Start
+                }
+                    ! [ Task.perform Resize Window.size ]
 
 
 emptyModel : Model
@@ -125,7 +117,10 @@ emptyModel =
         , bigDesktop = False
         , portrait = False
         }
-    , keySpin = animationInit
+    , keySpin =
+        Animation.style
+            [ Animation.rotate <| Animation.deg 0
+            ]
     , time = 0
     , arrow = False
     , scroll = Static
