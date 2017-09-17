@@ -44,7 +44,7 @@ var cryptoEnabled = crypto && crypto.generateKey && crypto.encrypt && crypto.dec
       var app = Elm.Main.fullscreen([jwk, flags])
 
       app.ports.share.subscribe(function (url) {
-        return navigator.share({
+        return window.navigator.share({
           title: 'Psst',
           url: url
         })
