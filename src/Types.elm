@@ -3,6 +3,7 @@ module Types exposing (..)
 import Animation
 import Dom
 import Element
+import Http
 import Json.Encode exposing (Value)
 import Time exposing (Time)
 import Window
@@ -16,10 +17,12 @@ type alias ScrollData =
 
 
 type Msg
-    = StartMsg
+    = CreateChat
     | CbWebsocketMessage String
     | InputChange String
     | Send
+    | CbCreateChat (Result Http.Error ChatCreate)
+    | CbJoinChat (Result Http.Error ChatJoin)
     | CbEncrypt String
     | CbDecrypt String
     | ExitChat
@@ -36,7 +39,8 @@ type Msg
 type alias Model =
     { status : Status
     , origin : String
-    , wsApi : String
+    , wsUrl : String
+    , restUrl : String
     , device : Element.Device
     , keySpin : Animation.State
     , time : Time
@@ -52,19 +56,17 @@ type alias Flags =
     { maybeRoomId : Maybe String
     , origin : String
     , wsUrl : String
+    , restUrl : String
     , shareEnabled : Bool
     , copyEnabled : Bool
     }
 
 
 type Message
-    = Message MessageType String
-
-
-type MessageType
-    = Self
-    | Them
-    | System
+    = Self String
+    | Them String
+    | ChatStart
+    | ConnEnd
 
 
 type ConnId
@@ -90,6 +92,18 @@ type alias PublicKeyRecord =
     }
 
 
+type alias ChatCreate =
+    { connId : ConnId
+    , roomId : RoomId
+    }
+
+
+type alias ChatJoin =
+    { aId : ConnId
+    , roomId : RoomId
+    }
+
+
 type Status
     = Start
     | AWaitingForBKey ConnId RoomId
@@ -111,10 +125,8 @@ type alias ChatArgs =
 
 
 type SocketMessages
-    = Waiting ConnId RoomId
-    | ReceiveMessage String
+    = ReceiveMessage String
     | Error String
-    | ReceiveAId ConnId
     | Key PublicKeyRecord
     | RoomUnavailable
     | Typing

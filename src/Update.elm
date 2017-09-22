@@ -3,24 +3,62 @@ module Update exposing (update)
 import Animation
 import Dom.Scroll exposing (toBottom)
 import Element
-import Json exposing (decodeScrollEvent, decodeSocketText, encodeDataTransmit, encodePublicKey)
+import Http
+import Json exposing (decodeChatCreate, decodeScrollEvent, decodeSocketText, encodeDataTransmit, encodePublicKey)
 import Json.Decode
 import Json.Encode
 import Navigation exposing (newUrl)
 import Ports
 import Task
-import Types exposing (ConnId(..), Message(..), MessageType(..), Model, Msg(..), SocketMessages(..), ScrollStatus(..), TypingStatus(..), Status(..))
+import Types exposing (ConnId(..), Message(..), Model, Msg(..), RoomId(RoomId), SocketMessages(..), ScrollStatus(..), TypingStatus(..), Status(..))
 import WebSocket
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        StartMsg ->
-            model ! [ start model.wsApi ]
+        CbCreateChat res ->
+            case res of
+                Ok { roomId, connId } ->
+                    { model | status = AWaitingForBKey connId roomId }
+                        ! [ let
+                                (RoomId roomIdString) =
+                                    roomId
+                            in
+                                Json.Encode.object [ ( "A_JOIN", Json.Encode.string roomIdString ) ]
+                                    |> Json.Encode.encode 0
+                                    |> WebSocket.send model.wsUrl
+                          ]
+
+                Err err ->
+                    model ! [ log "room create" err ]
+
+        CbJoinChat res ->
+            case res of
+                Ok { aId, roomId } ->
+                    { model | status = BWaitingForAKey aId }
+                        ! [ let
+                                (RoomId roomIdString) =
+                                    roomId
+                            in
+                                Json.Encode.object [ ( "B_JOIN", Json.Encode.string roomIdString ) ]
+                                    |> Json.Encode.encode 0
+                                    |> WebSocket.send model.wsUrl
+                          , [ ( "key", encodePublicKey model.myPublicKey )
+                            ]
+                                |> Json.Encode.object
+                                |> encodeDataTransmit aId
+                                |> WebSocket.send model.wsUrl
+                          ]
+
+                Err err ->
+                    model ! [ log "room join" err ]
 
         CbScrollToBottom _ ->
             { model | arrow = False } ! []
+
+        CreateChat ->
+            model ! [ createChat model.restUrl ]
 
         InputChange str ->
             case model.status of
@@ -32,7 +70,7 @@ update msg model =
                                     ( model.time
                                     , Json.Encode.string "TYPING"
                                         |> encodeDataTransmit connId
-                                        |> WebSocket.send model.wsApi
+                                        |> WebSocket.send model.wsUrl
                                     )
 
                                 _ ->
@@ -63,7 +101,7 @@ update msg model =
                                 InChat
                                     { args
                                         | input = ""
-                                        , messages = messages ++ [ Message Self input ]
+                                        , messages = messages ++ [ Self input ]
                                         , lastTypedPing = 0
                                     }
                         }
@@ -84,7 +122,7 @@ update msg model =
                             ]
                                 |> Json.Encode.object
                                 |> encodeDataTransmit connId
-                                |> WebSocket.send model.wsApi
+                                |> WebSocket.send model.wsUrl
                     in
                         model
                             ! [ messageTransfer ]
@@ -99,7 +137,7 @@ update msg model =
                         | status =
                             InChat
                                 { args
-                                    | messages = messages ++ [ Message Them txt ]
+                                    | messages = messages ++ [ Them txt ]
                                     , typingStatus = NotTyping
                                 }
                     }
@@ -127,14 +165,14 @@ update msg model =
             { model | status = Start } ! []
 
         PublicKeyLoaded () ->
-            case model.status of
-                AWaitingForBKey connId _ ->
+            let
+                startChat connId =
                     { model
                         | status =
                             InChat
                                 { connId = connId
                                 , typingStatus = NotTyping
-                                , messages = []
+                                , messages = [ ChatStart ]
                                 , lastTyped = 0
                                 , lastTypedPing = 0
                                 , isLive = True
@@ -142,24 +180,16 @@ update msg model =
                                 }
                     }
                         ! [ newUrl "/" ]
+            in
+                case model.status of
+                    AWaitingForBKey connId _ ->
+                        startChat connId
 
-                BWaitingForAKey connId ->
-                    { model
-                        | status =
-                            InChat
-                                { connId = connId
-                                , typingStatus = NotTyping
-                                , messages = []
-                                , lastTyped = 0
-                                , lastTypedPing = 0
-                                , isLive = True
-                                , input = ""
-                                }
-                    }
-                        ! [ newUrl "/" ]
+                    BWaitingForAKey connId ->
+                        startChat connId
 
-                _ ->
-                    model ! []
+                    _ ->
+                        model ! []
 
         DisplayScrollButton event ->
             case model.scroll of
@@ -190,14 +220,6 @@ update msg model =
             case Json.Decode.decodeString decodeSocketText str of
                 Ok socketMsg ->
                     case socketMsg of
-                        Waiting bId room ->
-                            case model.status of
-                                Start ->
-                                    { model | status = AWaitingForBKey bId room } ! []
-
-                                a ->
-                                    model ! [ log "waiting, oops" a ]
-
                         ReceiveMessage txt ->
                             model ! [ Ports.decrypt txt ]
 
@@ -215,10 +237,10 @@ update msg model =
 
                         ConnectionDead ->
                             case model.status of
-                                InChat args ->
+                                InChat ({ messages } as args) ->
                                     { model
                                         | status =
-                                            InChat { args | isLive = False }
+                                            InChat { args | isLive = False, messages = messages ++ [ ConnEnd ] }
                                     }
                                         ! []
 
@@ -229,37 +251,15 @@ update msg model =
                             model ! [ log "socket server error" err ]
 
                         RoomUnavailable ->
-                            case model.status of
-                                BJoining ->
-                                    { model
-                                        | status = Start
-                                        , keySpin =
-                                            Animation.interrupt
-                                                [ Animation.set [ Animation.rotate (Animation.deg 0) ]
-                                                ]
-                                                model.keySpin
-                                    }
-                                        ! [ log "room unavailable" 0, newUrl "/" ]
-
-                                a ->
-                                    model ! [ log "room unavailable, oops" a ]
-
-                        ReceiveAId connId ->
-                            case model.status of
-                                BJoining ->
-                                    let
-                                        keyTransfer =
-                                            [ ( "key", encodePublicKey model.myPublicKey )
-                                            ]
-                                                |> Json.Encode.object
-                                                |> encodeDataTransmit connId
-                                                |> WebSocket.send model.wsApi
-                                    in
-                                        { model | status = BWaitingForAKey connId }
-                                            ! [ keyTransfer ]
-
-                                a ->
-                                    model ! [ log "start, oops" a ]
+                            { model
+                                | status = Start
+                                , keySpin =
+                                    Animation.interrupt
+                                        [ Animation.set [ Animation.rotate (Animation.deg 0) ]
+                                        ]
+                                        model.keySpin
+                            }
+                                ! [ log "room unavailable" 0, newUrl "/" ]
 
                         Key theirPublicKey ->
                             case model.status of
@@ -270,7 +270,7 @@ update msg model =
                                             ]
                                                 |> Json.Encode.object
                                                 |> encodeDataTransmit connId
-                                                |> WebSocket.send model.wsApi
+                                                |> WebSocket.send model.wsUrl
                                     in
                                         model
                                             ! [ keyTransfer
@@ -298,11 +298,10 @@ update msg model =
                     model ! [ log "socket message error" err ]
 
 
-start : String -> Cmd Msg
-start wsUrl =
-    Json.Encode.string "START"
-        |> Json.Encode.encode 0
-        |> WebSocket.send wsUrl
+createChat : String -> Cmd Msg
+createChat restUrl =
+    Http.get (restUrl ++ "/room") decodeChatCreate
+        |> Http.send CbCreateChat
 
 
 isBottom : Json.Decode.Value -> ( number, Bool )

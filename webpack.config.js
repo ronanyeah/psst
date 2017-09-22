@@ -38,7 +38,8 @@ module.exports = {
   },
   plugins: [
     new webpack.DefinePlugin({
-      WS_API: JSON.stringify(process.env.WS_API)
+      WS_URL: JSON.stringify(process.env.WS_URL),
+      REST_URL: JSON.stringify(process.env.REST_URL)
     }),
     ...PROD
       ? [ new webpack.optimize.UglifyJsPlugin()

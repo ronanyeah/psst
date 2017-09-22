@@ -1,8 +1,9 @@
 module Main exposing (main)
 
 import Animation
-import Json exposing (decodePublicKey)
+import Json exposing (decodeChatJoin, decodePublicKey)
 import Html
+import Http
 import Json.Decode exposing (decodeValue)
 import Json.Encode exposing (Value)
 import Ports
@@ -30,9 +31,9 @@ main =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions { wsApi, keySpin } =
+subscriptions { wsUrl, keySpin } =
     Sub.batch
-        [ WebSocket.listen wsApi CbWebsocketMessage
+        [ WebSocket.listen wsUrl CbWebsocketMessage
         , Ports.cbEncrypt CbEncrypt
         , Ports.cbDecrypt CbDecrypt
         , Ports.cbLoadPublicKey PublicKeyLoaded
@@ -58,13 +59,14 @@ init ( jwk, flags ) =
 
 
 happyPath : Flags -> PublicKeyRecord -> ( Model, Cmd Msg )
-happyPath { maybeRoomId, origin, wsUrl, shareEnabled, copyEnabled } publicKey =
+happyPath { maybeRoomId, origin, wsUrl, shareEnabled, copyEnabled, restUrl } publicKey =
     let
         model =
             { emptyModel
                 | shareEnabled = shareEnabled
                 , copyEnabled = copyEnabled
-                , wsApi = wsUrl
+                , wsUrl = wsUrl
+                , restUrl = restUrl
                 , origin = origin
                 , myPublicKey = publicKey
             }
@@ -82,10 +84,8 @@ happyPath { maybeRoomId, origin, wsUrl, shareEnabled, copyEnabled } publicKey =
                                     ]
                                 ]
                 }
-                    ! [ [ ( "roomId", Json.Encode.string roomId ) ]
-                            |> Json.Encode.object
-                            |> Json.Encode.encode 0
-                            |> WebSocket.send wsUrl
+                    ! [ Http.get (restUrl ++ "/room/" ++ roomId) decodeChatJoin
+                            |> Http.send CbJoinChat
                       , Task.perform Resize Window.size
                       ]
 
@@ -100,7 +100,8 @@ emptyModel : Model
 emptyModel =
     { status = ErrorView ""
     , origin = ""
-    , wsApi = ""
+    , wsUrl = ""
+    , restUrl = ""
     , device =
         { width = 0
         , height = 0

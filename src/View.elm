@@ -2,7 +2,7 @@ module View exposing (view)
 
 import Animation
 import Element exposing (Attribute, Element, button, circle, column, el, empty, image, paragraph, row, text, screen, viewport, when)
-import Element.Attributes exposing (alignBottom, alignLeft, attribute, center, class, fill, height, id, padding, px, spacing, moveUp, verticalCenter, width, percent, vary, scrollbars)
+import Element.Attributes exposing (alignBottom, alignLeft, attribute, center, class, fill, height, id, padding, px, spacing, maxHeight, maxWidth, moveUp, verticalCenter, width, percent, vary, scrollbars)
 import Element.Events exposing (on, onClick, keyCode)
 import Element.Input as Input
 import Json.Decode
@@ -10,7 +10,7 @@ import Json.Encode
 import Html exposing (Html)
 import Styling exposing (Styles(..), Variations(..), styling)
 import Time exposing (Time)
-import Types exposing (Message(..), MessageType(..), Model, Msg(..), RoomId(..), Status(..), TypingStatus(..))
+import Types exposing (Message(..), Model, Msg(..), RoomId(..), Status(..), TypingStatus(..))
 
 
 view : Model -> Html Msg
@@ -22,7 +22,7 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
                 [ image None
                     (List.concat
                         [ Animation.render keySpin |> List.map Element.Attributes.toAttr
-                        , [ width <| px <| (device.width |> toFloat |> flip (/) 3) ]
+                        , [ width <| px <| (device.width |> toFloat |> flip (/) 3 |> min 100) ]
                         ]
                     )
                     { src = "/antenna.svg", caption = "key-spinner" }
@@ -30,15 +30,31 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
     in
         viewport styling <|
             column Body
-                [ height fill, width fill ]
+                [ height fill
+                , width fill
+                , center
+                , verticalCenter
+                ]
                 [ case status of
+                    Start ->
+                        column None
+                            [ center, verticalCenter ]
+                            [ circle (device.width |> toFloat |> flip (/) 3 |> min 100)
+                                StartCircle
+                                [ class "start-circle", onClick CreateChat, center, verticalCenter ]
+                              <|
+                                el None [ center, verticalCenter ] <|
+                                    text
+                                        "Start"
+                            ]
+
                     AWaitingForBKey _ (RoomId roomId) ->
                         let
                             roomlink =
                                 origin ++ "#" ++ roomId
                         in
                             column None
-                                [ center, verticalCenter, height fill, width fill, spacing 10 ]
+                                [ center, verticalCenter, height fill, width fill ]
                                 [ paragraph ShareThis
                                     [ padding 10 ]
                                     [ text "Share this:" ]
@@ -55,15 +71,15 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
                                         text "SHARE"
                                 ]
 
-                    BWaitingForAKey _ ->
+                    BJoining ->
                         keySpinner
 
-                    BJoining ->
+                    BWaitingForAKey _ ->
                         keySpinner
 
                     InChat { typingStatus, messages, input, isLive } ->
                         column Body
-                            [ width <| percent 100, height <| percent 100 ]
+                            [ width fill, height fill ]
                             [ column Body
                                 [ spacing 7
                                 , padding 7
@@ -74,15 +90,6 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
                               <|
                                 List.map msgCard messages
                             , viewTyping time typingStatus
-                            , when (not isLive) <|
-                                button Button
-                                    [ onClick ExitChat
-                                    , width <| px <| (device.width |> toFloat |> flip (/) 4)
-                                    , height <| px 40
-                                    , center
-                                    ]
-                                <|
-                                    text "EXIT"
                             , when arrow <|
                                 screen <|
                                     circle 20
@@ -124,22 +131,11 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
                                             button Button
                                                 [ width <| px <| (device.width |> toFloat |> flip (/) 4)
                                                 , height <| px 40
+                                                , class "conn-lost"
                                                 ]
                                             <|
                                                 text "🚫"
                                         ]
-                            ]
-
-                    Start ->
-                        column None
-                            [ center, verticalCenter, height fill ]
-                            [ circle (device.width |> toFloat |> flip (/) 3)
-                                StartCircle
-                                [ class "start-circle", onClick StartMsg ]
-                              <|
-                                el None [ center, verticalCenter ] <|
-                                    text
-                                        "Start"
                             ]
 
                     ErrorView txt ->
@@ -165,16 +161,19 @@ viewTyping time status =
 
 
 msgCard : Message -> Element Styles Variations msg
-msgCard (Message msgType content) =
-    case msgType of
-        Self ->
-            paragraph MsgSelf [ class "message", padding 4 ] [ text content ]
+msgCard message =
+    case message of
+        Self content ->
+            paragraph MsgSelf [ padding 4 ] [ text content ]
 
-        Them ->
+        Them content ->
             paragraph MsgThem [ class "message", padding 4 ] [ text content ]
 
-        System ->
-            paragraph MsgSys [ class "message", padding 4 ] [ text content ]
+        ChatStart ->
+            paragraph MsgSys [ padding 4 ] [ text "Ready to chat!" ]
+
+        ConnEnd ->
+            paragraph MsgSys [ padding 4 ] [ text "Connection lost!" ]
 
 
 onScroll : (Json.Encode.Value -> msg) -> Attribute variation msg

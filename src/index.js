@@ -14,7 +14,8 @@ var crypto = window.crypto.subtle || window.crypto.webkitSubtle || window.crypto
 
 var flags = {
   origin: window.location.origin,
-  wsUrl: WS_API,
+  wsUrl: WS_URL,
+  restUrl: REST_URL,
   maybeRoomId: window.location.hash ? window.location.hash.substring(1) : null,
   shareEnabled: typeof window.navigator.share === 'function',
   copyEnabled: Clipboard.isSupported()
