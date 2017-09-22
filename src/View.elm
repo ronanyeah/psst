@@ -145,11 +145,7 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
 
 viewTyping : Time -> Time -> Element Styles vars msg
 viewTyping currentTime lastSeenTyping =
-    when
-        ((currentTime - lastSeenTyping)
-            < 5000
-        )
-    <|
+    when ((currentTime - lastSeenTyping) < 5000) <|
         image None
             [ class "typing" ]
             { src = "/typing.svg", caption = "is-typing" }
