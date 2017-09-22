@@ -48,8 +48,7 @@ decodePublicKey =
 decodeSocketText : Decoder SocketMessage
 decodeSocketText =
     Decode.oneOf
-        [ decodeError
-        , decodeEnum
+        [ decodeEnum
         , decodeKey
         , decodeMessage
         ]
@@ -73,12 +72,6 @@ decodeMessage : Decoder SocketMessage
 decodeMessage =
     map ReceiveMessage
         (field "message" string)
-
-
-decodeError : Decoder SocketMessage
-decodeError =
-    map Error
-        (field "error" string)
 
 
 decodeKey : Decoder SocketMessage

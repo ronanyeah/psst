@@ -120,7 +120,6 @@ type alias ChatArgs =
 
 type SocketMessage
     = ReceiveMessage String
-    | Error String
     | Key PublicKeyRecord
     | ChatUnavailable
     | Typing

@@ -243,10 +243,7 @@ update msg model =
                                         ! []
 
                                 _ ->
-                                    model ! []
-
-                        Error err ->
-                            model ! [ log "socket server error" err ]
+                                    model ! [ log "enum" "conn doesn't exist" ]
 
                         ChatUnavailable ->
                             { model
