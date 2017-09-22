@@ -10,7 +10,7 @@ import Json.Encode
 import Navigation exposing (newUrl)
 import Ports
 import Task
-import Types exposing (ConnId(..), Message(..), Model, Msg(..), RoomId(RoomId), SocketMessages(..), ScrollStatus(..), TypingStatus(..), Status(..))
+import Types exposing (ConnId(..), Message(..), Model, Msg(..), ChatId(ChatId), SocketMessages(..), ScrollStatus(..), TypingStatus(..), Status(..))
 import WebSocket
 
 
@@ -19,29 +19,29 @@ update msg model =
     case msg of
         CbCreateChat res ->
             case res of
-                Ok { roomId, connId } ->
-                    { model | status = AWaitingForBKey connId roomId }
+                Ok { chatId, connId } ->
+                    { model | status = AWaitingForBKey connId chatId }
                         ! [ let
-                                (RoomId roomIdString) =
-                                    roomId
+                                (ChatId chatIdString) =
+                                    chatId
                             in
-                                Json.Encode.object [ ( "A_JOIN", Json.Encode.string roomIdString ) ]
+                                Json.Encode.object [ ( "A_JOIN", Json.Encode.string chatIdString ) ]
                                     |> Json.Encode.encode 0
                                     |> WebSocket.send model.wsUrl
                           ]
 
                 Err err ->
-                    model ! [ log "room create" err ]
+                    model ! [ log "chat create" err ]
 
         CbJoinChat res ->
             case res of
-                Ok { aId, roomId } ->
+                Ok { aId, chatId } ->
                     { model | status = BWaitingForAKey aId }
                         ! [ let
-                                (RoomId roomIdString) =
-                                    roomId
+                                (ChatId chatIdString) =
+                                    chatId
                             in
-                                Json.Encode.object [ ( "B_JOIN", Json.Encode.string roomIdString ) ]
+                                Json.Encode.object [ ( "B_JOIN", Json.Encode.string chatIdString ) ]
                                     |> Json.Encode.encode 0
                                     |> WebSocket.send model.wsUrl
                           , [ ( "key", encodePublicKey model.myPublicKey )
@@ -52,7 +52,7 @@ update msg model =
                           ]
 
                 Err err ->
-                    model ! [ log "room join" err ]
+                    model ! [ log "chat join" err ]
 
         CbScrollToBottom _ ->
             { model | arrow = False } ! []
@@ -250,7 +250,7 @@ update msg model =
                         Error err ->
                             model ! [ log "socket server error" err ]
 
-                        RoomUnavailable ->
+                        ChatUnavailable ->
                             { model
                                 | status = Start
                                 , keySpin =
@@ -259,7 +259,7 @@ update msg model =
                                         ]
                                         model.keySpin
                             }
-                                ! [ log "room unavailable" 0, newUrl "/" ]
+                                ! [ log "chat unavailable" 0, newUrl "/" ]
 
                         Key theirPublicKey ->
                             case model.status of
@@ -300,7 +300,7 @@ update msg model =
 
 createChat : String -> Cmd Msg
 createChat restUrl =
-    Http.get (restUrl ++ "/room") decodeChatCreate
+    Http.get (restUrl ++ "/chat") decodeChatCreate
         |> Http.send CbCreateChat
 
 

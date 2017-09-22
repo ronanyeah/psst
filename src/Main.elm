@@ -59,7 +59,7 @@ init ( jwk, flags ) =
 
 
 happyPath : Flags -> PublicKeyRecord -> ( Model, Cmd Msg )
-happyPath { maybeRoomId, origin, wsUrl, shareEnabled, copyEnabled, restUrl } publicKey =
+happyPath { maybeChatId, origin, wsUrl, shareEnabled, copyEnabled, restUrl } publicKey =
     let
         model =
             { emptyModel
@@ -71,8 +71,8 @@ happyPath { maybeRoomId, origin, wsUrl, shareEnabled, copyEnabled, restUrl } pub
                 , myPublicKey = publicKey
             }
     in
-        case maybeRoomId of
-            Just roomId ->
+        case maybeChatId of
+            Just chatId ->
                 { model
                     | status = BJoining
                     , keySpin =
@@ -84,7 +84,7 @@ happyPath { maybeRoomId, origin, wsUrl, shareEnabled, copyEnabled, restUrl } pub
                                     ]
                                 ]
                 }
-                    ! [ Http.get (restUrl ++ "/room/" ++ roomId) decodeChatJoin
+                    ! [ Http.get (restUrl ++ "/chat/" ++ chatId) decodeChatJoin
                             |> Http.send CbJoinChat
                       , Task.perform Resize Window.size
                       ]

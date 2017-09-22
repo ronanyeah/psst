@@ -2,7 +2,7 @@ module Json exposing (..)
 
 import Json.Decode as Decode exposing (Decoder, andThen, fail, field, list, bool, map2, map6, map, string, succeed)
 import Json.Encode as Encode
-import Types exposing (ChatCreate, ChatJoin, ConnId(..), PublicKeyRecord, RoomId(..), ScrollData, SocketMessages(..))
+import Types exposing (ChatCreate, ChatJoin, ConnId(..), PublicKeyRecord, ChatId(..), ScrollData, SocketMessages(..))
 
 
 decodeScrollEvent : Decoder ScrollData
@@ -59,14 +59,14 @@ decodeChatCreate : Decoder ChatCreate
 decodeChatCreate =
     map2 ChatCreate
         (field "bId" (map ConnId string))
-        (field "roomId" (map RoomId string))
+        (field "chatId" (map ChatId string))
 
 
 decodeChatJoin : Decoder ChatJoin
 decodeChatJoin =
     map2 ChatJoin
         (field "aId" (map ConnId string))
-        (field "roomId" (map RoomId string))
+        (field "chatId" (map ChatId string))
 
 
 decodeMessage : Decoder SocketMessages
@@ -94,7 +94,7 @@ decodeEnum =
             (\str ->
                 case str of
                     "ROOM_UNAVAILABLE" ->
-                        succeed RoomUnavailable
+                        succeed ChatUnavailable
 
                     "TYPING" ->
                         succeed Typing

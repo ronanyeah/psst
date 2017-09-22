@@ -10,7 +10,7 @@ import Json.Encode
 import Html exposing (Html)
 import Styling exposing (Styles(..), Variations(..), styling)
 import Time exposing (Time)
-import Types exposing (Message(..), Model, Msg(..), RoomId(..), Status(..), TypingStatus(..))
+import Types exposing (Message(..), Model, Msg(..), ChatId(..), Status(..), TypingStatus(..))
 
 
 view : Model -> Html Msg
@@ -48,26 +48,26 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
                                         "Start"
                             ]
 
-                    AWaitingForBKey _ (RoomId roomId) ->
+                    AWaitingForBKey _ (ChatId chatId) ->
                         let
-                            roomlink =
-                                origin ++ "#" ++ roomId
+                            chatlink =
+                                origin ++ "#" ++ chatId
                         in
                             column None
                                 [ center, verticalCenter, height fill, width fill ]
                                 [ paragraph ShareThis
                                     [ padding 10 ]
                                     [ text "Share this:" ]
-                                , paragraph Link [ class "room-link", padding 10 ] [ text roomlink ]
+                                , paragraph Link [ class "chat-link", padding 10 ] [ text chatlink ]
                                 , when copyEnabled <|
                                     button Button
                                         [ class "copy-button"
-                                        , attribute "data-clipboard-text" roomlink
+                                        , attribute "data-clipboard-text" chatlink
                                         ]
                                     <|
                                         text "COPY"
                                 , when shareEnabled <|
-                                    button Button [ onClick <| Share roomlink ] <|
+                                    button Button [ onClick <| Share chatlink ] <|
                                         text "SHARE"
                                 ]
 

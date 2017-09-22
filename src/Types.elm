@@ -53,7 +53,7 @@ type alias Model =
 
 
 type alias Flags =
-    { maybeRoomId : Maybe String
+    { maybeChatId : Maybe String
     , origin : String
     , wsUrl : String
     , restUrl : String
@@ -73,8 +73,8 @@ type ConnId
     = ConnId String
 
 
-type RoomId
-    = RoomId String
+type ChatId
+    = ChatId String
 
 
 type TypingStatus
@@ -94,19 +94,19 @@ type alias PublicKeyRecord =
 
 type alias ChatCreate =
     { connId : ConnId
-    , roomId : RoomId
+    , chatId : ChatId
     }
 
 
 type alias ChatJoin =
     { aId : ConnId
-    , roomId : RoomId
+    , chatId : ChatId
     }
 
 
 type Status
     = Start
-    | AWaitingForBKey ConnId RoomId
+    | AWaitingForBKey ConnId ChatId
     | BJoining
     | BWaitingForAKey ConnId
     | InChat ChatArgs
@@ -128,7 +128,7 @@ type SocketMessages
     = ReceiveMessage String
     | Error String
     | Key PublicKeyRecord
-    | RoomUnavailable
+    | ChatUnavailable
     | Typing
     | ConnectionDead
 

@@ -11,9 +11,9 @@ const assert = require('assert')
 
   await a.click('.start-circle')
 
-  await a.waitFor('.room-link')
+  await a.waitFor('.chat-link')
 
-  const link = await a.$eval('.room-link', x => x.innerText)
+  const link = await a.$eval('.chat-link', x => x.innerText)
 
   const b = await browser.newPage()
   await b.goto(link)
