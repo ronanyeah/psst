@@ -77,11 +77,6 @@ type ChatId
     = ChatId String
 
 
-type TypingStatus
-    = IsTyping Time
-    | NotTyping
-
-
 type alias PublicKeyRecord =
     { alg : String
     , e : String
@@ -115,7 +110,7 @@ type Status
 
 type alias ChatArgs =
     { connId : ConnId
-    , typingStatus : TypingStatus
+    , lastSeenTyping : Time
     , messages : List Message
     , lastTypedPing : Time
     , isLive : Bool

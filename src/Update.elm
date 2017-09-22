@@ -10,7 +10,7 @@ import Json.Encode
 import Navigation exposing (newUrl)
 import Ports
 import Task
-import Types exposing (ConnId(..), Message(..), Model, Msg(..), ChatId(ChatId), SocketMessage(..), ScrollStatus(..), TypingStatus(..), Status(..))
+import Types exposing (ConnId(..), Message(..), Model, Msg(..), ChatId(ChatId), SocketMessage(..), ScrollStatus(..), Status(..))
 import WebSocket
 
 
@@ -137,7 +137,7 @@ update msg model =
                             InChat
                                 { args
                                     | messages = messages ++ [ Them txt ]
-                                    , typingStatus = NotTyping
+                                    , lastSeenTyping = 0
                                 }
                     }
                         ! [ scrollToBottom ]
@@ -170,7 +170,7 @@ update msg model =
                         | status =
                             InChat
                                 { connId = connId
-                                , typingStatus = NotTyping
+                                , lastSeenTyping = 0
                                 , messages = [ ChatStart ]
                                 , lastTypedPing = 0
                                 , isLive = True
@@ -226,7 +226,7 @@ update msg model =
                                 InChat args ->
                                     { model
                                         | status =
-                                            InChat { args | typingStatus = IsTyping model.time }
+                                            InChat { args | lastSeenTyping = model.time }
                                     }
                                         ! []
 

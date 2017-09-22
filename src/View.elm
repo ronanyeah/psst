@@ -10,7 +10,7 @@ import Json.Encode
 import Html exposing (Html)
 import Styling exposing (Styles(..), Variations(..), styling)
 import Time exposing (Time)
-import Types exposing (Message(..), Model, Msg(..), ChatId(..), Status(..), TypingStatus(..))
+import Types exposing (Message(..), Model, Msg(..), ChatId(..), Status(..))
 
 
 view : Model -> Html Msg
@@ -77,7 +77,7 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
                     BWaitingForAKey _ ->
                         keySpinner
 
-                    InChat { typingStatus, messages, input, isLive } ->
+                    InChat { lastSeenTyping, messages, input, isLive } ->
                         column Body
                             [ width fill, height fill ]
                             [ column Body
@@ -89,7 +89,7 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
                                 ]
                               <|
                                 List.map msgCard messages
-                            , viewTyping time typingStatus
+                            , viewTyping time lastSeenTyping
                             , when arrow <|
                                 screen <|
                                     circle 20
@@ -143,21 +143,16 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
                 ]
 
 
-viewTyping : Time -> TypingStatus -> Element Styles vars msg
-viewTyping time status =
-    case status of
-        IsTyping typingAt ->
-            when
-                ((time - typingAt)
-                    < 5000
-                )
-            <|
-                image None
-                    [ class "typing" ]
-                    { src = "/typing.svg", caption = "is-typing" }
-
-        NotTyping ->
-            empty
+viewTyping : Time -> Time -> Element Styles vars msg
+viewTyping currentTime lastSeenTyping =
+    when
+        ((currentTime - lastSeenTyping)
+            < 5000
+        )
+    <|
+        image None
+            [ class "typing" ]
+            { src = "/typing.svg", caption = "is-typing" }
 
 
 msgCard : Message -> Element Styles Variations msg
