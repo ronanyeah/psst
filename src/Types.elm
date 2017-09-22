@@ -117,7 +117,6 @@ type alias ChatArgs =
     { connId : ConnId
     , typingStatus : TypingStatus
     , messages : List Message
-    , lastTyped : Time
     , lastTypedPing : Time
     , isLive : Bool
     , input : String

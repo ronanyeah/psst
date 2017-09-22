@@ -62,10 +62,10 @@ update msg model =
 
         InputChange str ->
             case model.status of
-                InChat ({ lastTyped, lastTypedPing } as args) ->
+                InChat ({ lastTypedPing } as args) ->
                     let
                         ( pinged, cmd ) =
-                            case ( model.status, (lastTyped - lastTypedPing) > 4000 ) of
+                            case ( model.status, (model.time - lastTypedPing) > 4000 ) of
                                 ( InChat { connId }, True ) ->
                                     ( model.time
                                     , Json.Encode.string "TYPING"
@@ -81,7 +81,6 @@ update msg model =
                                 InChat
                                     { args
                                         | input = str
-                                        , lastTyped = model.time
                                         , lastTypedPing = pinged
                                     }
                         }
@@ -173,7 +172,6 @@ update msg model =
                                 { connId = connId
                                 , typingStatus = NotTyping
                                 , messages = [ ChatStart ]
-                                , lastTyped = 0
                                 , lastTypedPing = 0
                                 , isLive = True
                                 , input = ""
