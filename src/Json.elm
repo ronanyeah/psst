@@ -2,7 +2,7 @@ module Json exposing (..)
 
 import Json.Decode as Decode exposing (Decoder, andThen, fail, field, list, bool, map2, map6, map, string, succeed)
 import Json.Encode as Encode
-import Types exposing (ChatCreate, ChatJoin, ConnId(..), PublicKeyRecord, ChatId(..), ScrollData, SocketMessages(..))
+import Types exposing (ChatCreate, ChatJoin, ConnId(..), PublicKeyRecord, ChatId(..), ScrollData, SocketMessage(..))
 
 
 decodeScrollEvent : Decoder ScrollData
@@ -45,7 +45,7 @@ decodePublicKey =
         (field "n" string)
 
 
-decodeSocketText : Decoder SocketMessages
+decodeSocketText : Decoder SocketMessage
 decodeSocketText =
     Decode.oneOf
         [ decodeError
@@ -69,25 +69,25 @@ decodeChatJoin =
         (field "chatId" (map ChatId string))
 
 
-decodeMessage : Decoder SocketMessages
+decodeMessage : Decoder SocketMessage
 decodeMessage =
     map ReceiveMessage
         (field "message" string)
 
 
-decodeError : Decoder SocketMessages
+decodeError : Decoder SocketMessage
 decodeError =
     map Error
         (field "error" string)
 
 
-decodeKey : Decoder SocketMessages
+decodeKey : Decoder SocketMessage
 decodeKey =
     map Key
         (field "key" decodePublicKey)
 
 
-decodeEnum : Decoder SocketMessages
+decodeEnum : Decoder SocketMessage
 decodeEnum =
     string
         |> andThen

@@ -124,7 +124,7 @@ type alias ChatArgs =
     }
 
 
-type SocketMessages
+type SocketMessage
     = ReceiveMessage String
     | Error String
     | Key PublicKeyRecord

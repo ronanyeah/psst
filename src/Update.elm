@@ -10,7 +10,7 @@ import Json.Encode
 import Navigation exposing (newUrl)
 import Ports
 import Task
-import Types exposing (ConnId(..), Message(..), Model, Msg(..), ChatId(ChatId), SocketMessages(..), ScrollStatus(..), TypingStatus(..), Status(..))
+import Types exposing (ConnId(..), Message(..), Model, Msg(..), ChatId(ChatId), SocketMessage(..), ScrollStatus(..), TypingStatus(..), Status(..))
 import WebSocket
 
 
