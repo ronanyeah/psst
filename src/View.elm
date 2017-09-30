@@ -16,13 +16,17 @@ import Types exposing (Message(..), Model, Msg(..), ChatId(..), Status(..))
 view : Model -> Html Msg
 view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled } =
     let
+        viewWidth =
+            clamp 0 425 device.width
+                |> toFloat
+
         keySpinner =
             column None
                 [ center, verticalCenter, height fill ]
                 [ image None
                     (List.concat
                         [ Animation.render keySpin |> List.map Element.Attributes.toAttr
-                        , [ width <| px <| (device.width |> toFloat |> flip (/) 3 |> min 100) ]
+                        , [ width <| px <| (viewWidth |> flip (/) 3 |> min 100) ]
                         ]
                     )
                     { src = "/antenna.svg", caption = "key-spinner" }
@@ -39,7 +43,7 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
                     Start ->
                         column None
                             [ center, verticalCenter ]
-                            [ circle (device.width |> toFloat |> flip (/) 3 |> min 100)
+                            [ circle (viewWidth |> flip (/) 3)
                                 StartCircle
                                 [ class "start-circle", onClick CreateChat, center, verticalCenter ]
                               <|
@@ -79,7 +83,7 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
 
                     InChat { lastSeenTyping, messages, input, isLive } ->
                         column Body
-                            [ width fill, height fill ]
+                            [ width <| px viewWidth, height fill, center ]
                             [ column Body
                                 [ spacing 7
                                 , padding 7
@@ -99,13 +103,18 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
                             , el None [ height <| px 40 ] empty
                             , screen <|
                                 el None
-                                    [ alignBottom ]
+                                    [ alignBottom, center ]
                                 <|
                                     row None
-                                        []
-                                        [ Input.text None
+                                        [ padding 2, spacing 2 ]
+                                        [ Input.multiline MessageBox
                                             [ height <| px 40
-                                            , width <| px <| (device.width |> toFloat |> flip (/) 4 |> (*) 3)
+                                            , width <|
+                                                px <|
+                                                    (viewWidth
+                                                        |> flip (/) 4
+                                                        |> (*) 3
+                                                    )
                                             , onPressEnter Send
                                             , class "message-input"
                                             ]
@@ -121,7 +130,7 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
                                         , if isLive then
                                             button Button
                                                 [ onClick Send
-                                                , width <| px <| (device.width |> toFloat |> flip (/) 4)
+                                                , width <| px <| (viewWidth |> flip (/) 4)
                                                 , height <| px 40
                                                 , class "send-message"
                                                 ]
@@ -129,7 +138,7 @@ view { status, device, keySpin, origin, time, arrow, shareEnabled, copyEnabled }
                                                 text "send"
                                           else
                                             button Button
-                                                [ width <| px <| (device.width |> toFloat |> flip (/) 4)
+                                                [ width <| px <| (viewWidth |> flip (/) 4)
                                                 , height <| px 40
                                                 , class "conn-lost"
                                                 ]
@@ -161,7 +170,7 @@ msgCard message =
             paragraph MsgThem [ class "message", padding 4 ] [ text content ]
 
         ChatStart ->
-            paragraph MsgSys [ padding 4 ] [ text "Ready to chat!" ]
+            paragraph MsgSys [ padding 4, width fill ] [ text "Ready to chat!" ]
 
         ConnEnd ->
             paragraph MsgSys [ padding 4 ] [ text "Connection lost!" ]

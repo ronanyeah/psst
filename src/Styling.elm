@@ -12,6 +12,7 @@ type Styles
     | Body
     | DeadConn
     | Link
+    | MessageBox
     | MsgSelf
     | MsgThem
     | MsgSys
@@ -76,6 +77,11 @@ styling =
             , Font.size 35
             , Font.alignLeft
             ]
+        , style MessageBox
+            [ Border.rounded 10
+            , Border.dashed
+            , Color.border black
+            ]
         , style MsgSelf
             [ Color.background org
             , Font.size 35
@@ -95,6 +101,7 @@ styling =
             ]
         , style Button
             [ Border.dashed
+            , Border.rounded 10
             , Color.border black
             , Color.background org
             , Font.size 30
