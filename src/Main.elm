@@ -1,15 +1,14 @@
 module Main exposing (main)
 
-import Animation
-import Json exposing (decodeChatJoin, decodePublicKey)
 import Html
 import Http
+import Json exposing (decodeChatJoin, decodePublicKey)
 import Json.Decode exposing (decodeValue)
 import Json.Encode exposing (Value)
 import Ports
 import Task
-import Types exposing (Flags, Model, Msg(..), PublicKeyRecord, ScrollStatus(Static), Status(..))
 import Time
+import Types exposing (Device(..), Flags, Model, Msg(..), PublicKeyRecord, ScrollStatus(Static), Status(..))
 import Update exposing (update)
 import View exposing (view)
 import WebSocket
@@ -31,13 +30,12 @@ main =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions { wsUrl, keySpin } =
+subscriptions { wsUrl } =
     Sub.batch
         [ WebSocket.listen wsUrl CbWebsocketMessage
         , Ports.cbEncrypt CbEncrypt
         , Ports.cbDecrypt CbDecrypt
         , Ports.cbLoadPublicKey PublicKeyLoaded
-        , Animation.subscription Animate [ keySpin ]
         , Time.every (100 * Time.millisecond) Tick
         ]
 
@@ -51,10 +49,10 @@ init ( jwk, flags ) =
     decodeValue decodePublicKey jwk
         |> Result.map (happyPath flags)
         |> Result.withDefault
-            ({ emptyModel
+            ( { emptyModel
                 | status = ErrorView "Your browser is not equipped for this sweet PWA"
-             }
-                ! []
+              }
+            , Cmd.none
             )
 
 
@@ -71,29 +69,24 @@ happyPath { maybeChatId, origin, wsUrl, shareEnabled, copyEnabled, restUrl } pub
                 , myPublicKey = publicKey
             }
     in
-        case maybeChatId of
-            Just chatId ->
-                { model
-                    | status = BJoining
-                    , keySpin =
-                        model.keySpin
-                            |> Animation.interrupt
-                                [ Animation.loop
-                                    [ Animation.to
-                                        [ Animation.rotate (Animation.turn 1) ]
-                                    ]
-                                ]
-                }
-                    ! [ Http.get (restUrl ++ "/chat/" ++ chatId) decodeChatJoin
-                            |> Http.send CbJoinChat
-                      , Task.perform Resize Window.size
-                      ]
+    case maybeChatId of
+        Just chatId ->
+            ( { model
+                | status = BJoining
+              }
+            , Cmd.batch
+                [ Http.get (restUrl ++ "/chat/" ++ chatId) decodeChatJoin
+                    |> Http.send CbJoinChat
+                , Task.perform Resize Window.size
+                ]
+            )
 
-            Nothing ->
-                { model
-                    | status = Start
-                }
-                    ! [ Task.perform Resize Window.size ]
+        Nothing ->
+            ( { model
+                | status = Start
+              }
+            , Task.perform Resize Window.size
+            )
 
 
 emptyModel : Model
@@ -102,19 +95,7 @@ emptyModel =
     , origin = ""
     , wsUrl = ""
     , restUrl = ""
-    , device =
-        { width = 0
-        , height = 0
-        , phone = False
-        , tablet = False
-        , desktop = False
-        , bigDesktop = False
-        , portrait = False
-        }
-    , keySpin =
-        Animation.style
-            [ Animation.rotate <| Animation.deg 0
-            ]
+    , device = Desktop
     , time = 0
     , arrow = False
     , scroll = Static

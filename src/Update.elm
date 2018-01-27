@@ -1,16 +1,14 @@
 module Update exposing (update)
 
-import Animation
 import Dom.Scroll exposing (toBottom)
-import Element
 import Http
 import Json exposing (decodeChatCreate, decodeScrollEvent, decodeSocketText, encodeDataTransmit, encodePublicKey)
 import Json.Decode
 import Json.Encode
-import Navigation exposing (newUrl)
+import Navigation
 import Ports
 import Task
-import Types exposing (ConnId(..), Message(..), Model, Msg(..), ChatId(ChatId), SocketMessage(..), ScrollStatus(..), Status(..))
+import Types exposing (ChatId(ChatId), ConnId(..), Device(..), Message(..), Model, Msg(..), ScrollStatus(..), SocketMessage(..), Status(..))
 import WebSocket
 
 
@@ -25,9 +23,9 @@ update msg model =
                                 (ChatId chatIdString) =
                                     chatId
                             in
-                                Json.Encode.object [ ( "A_JOIN", Json.Encode.string chatIdString ) ]
-                                    |> Json.Encode.encode 0
-                                    |> WebSocket.send model.wsUrl
+                            Json.Encode.object [ ( "A_JOIN", Json.Encode.string chatIdString ) ]
+                                |> Json.Encode.encode 0
+                                |> WebSocket.send model.wsUrl
                           ]
 
                 Err err ->
@@ -41,9 +39,9 @@ update msg model =
                                 (ChatId chatIdString) =
                                     chatId
                             in
-                                Json.Encode.object [ ( "B_JOIN", Json.Encode.string chatIdString ) ]
-                                    |> Json.Encode.encode 0
-                                    |> WebSocket.send model.wsUrl
+                            Json.Encode.object [ ( "B_JOIN", Json.Encode.string chatIdString ) ]
+                                |> Json.Encode.encode 0
+                                |> WebSocket.send model.wsUrl
                           , [ ( "key", encodePublicKey model.myPublicKey )
                             ]
                                 |> Json.Encode.object
@@ -76,15 +74,15 @@ update msg model =
                                 _ ->
                                     ( lastTypedPing, Cmd.none )
                     in
-                        { model
-                            | status =
-                                InChat
-                                    { args
-                                        | input = str
-                                        , lastTypedPing = pinged
-                                    }
-                        }
-                            ! [ cmd ]
+                    { model
+                        | status =
+                            InChat
+                                { args
+                                    | input = str
+                                    , lastTypedPing = pinged
+                                }
+                    }
+                        ! [ cmd ]
 
                 _ ->
                     model ! []
@@ -110,7 +108,14 @@ update msg model =
                     model ! []
 
         Resize size ->
-            { model | device = Element.classifyDevice size } ! []
+            { model
+                | device =
+                    if size.width <= 600 then
+                        Mobile
+                    else
+                        Desktop
+            }
+                ! []
 
         CbEncrypt txt ->
             case model.status of
@@ -123,8 +128,8 @@ update msg model =
                                 |> encodeDataTransmit connId
                                 |> WebSocket.send model.wsUrl
                     in
-                        model
-                            ! [ messageTransfer ]
+                    model
+                        ! [ messageTransfer ]
 
                 a ->
                     model ! [ log "cbEncrypt, oops" a ]
@@ -145,12 +150,6 @@ update msg model =
                 _ ->
                     model ! []
 
-        Animate animMsg ->
-            { model
-                | keySpin = Animation.update animMsg model.keySpin
-            }
-                ! []
-
         Tick time ->
             { model | time = time } ! []
 
@@ -166,7 +165,7 @@ update msg model =
         PublicKeyLoaded () ->
             let
                 startChat connId =
-                    { model
+                    ( { model
                         | status =
                             InChat
                                 { connId = connId
@@ -176,18 +175,19 @@ update msg model =
                                 , isLive = True
                                 , input = ""
                                 }
-                    }
-                        ! [ newUrl "/" ]
+                      }
+                    , Navigation.newUrl "/"
+                    )
             in
-                case model.status of
-                    AWaitingForBKey connId _ ->
-                        startChat connId
+            case model.status of
+                AWaitingForBKey connId _ ->
+                    startChat connId
 
-                    BWaitingForAKey connId ->
-                        startChat connId
+                BWaitingForAKey connId ->
+                    startChat connId
 
-                    _ ->
-                        model ! []
+                _ ->
+                    model ! []
 
         DisplayScrollButton event ->
             case model.scroll of
@@ -196,7 +196,7 @@ update msg model =
                         ( h, arrow ) =
                             isBottom event
                     in
-                        { model | arrow = not arrow, scroll = Moving model.time h } ! []
+                    { model | arrow = not arrow, scroll = Moving model.time h } ! []
 
                 Moving pre h ->
                     if (model.time - pre) > 50 then
@@ -210,7 +210,7 @@ update msg model =
                                 else
                                     Moving model.time newH
                         in
-                            { model | arrow = not arrow, scroll = scroll } ! []
+                        { model | arrow = not arrow, scroll = scroll } ! []
                     else
                         model ! []
 
@@ -246,15 +246,11 @@ update msg model =
                                     model ! [ log "enum" "conn doesn't exist" ]
 
                         ChatUnavailable ->
-                            { model
+                            ( { model
                                 | status = Start
-                                , keySpin =
-                                    Animation.interrupt
-                                        [ Animation.set [ Animation.rotate (Animation.deg 0) ]
-                                        ]
-                                        model.keySpin
-                            }
-                                ! [ log "chat unavailable" 0, newUrl "/" ]
+                              }
+                            , Cmd.batch [ log "chat unavailable" 0, Navigation.newUrl "/" ]
+                            )
 
                         Key theirPublicKey ->
                             case model.status of
@@ -267,24 +263,15 @@ update msg model =
                                                 |> encodeDataTransmit connId
                                                 |> WebSocket.send model.wsUrl
                                     in
-                                        model
-                                            ! [ keyTransfer
-                                              , Ports.loadPublicKey <| encodePublicKey theirPublicKey
-                                              ]
+                                    model
+                                        ! [ keyTransfer
+                                          , Ports.loadPublicKey <| encodePublicKey theirPublicKey
+                                          ]
 
                                 BWaitingForAKey _ ->
-                                    let
-                                        keySpin =
-                                            Animation.interrupt
-                                                [ Animation.set [ Animation.rotate (Animation.deg 0) ]
-                                                ]
-                                                model.keySpin
-                                    in
-                                        { model
-                                            | keySpin = keySpin
-                                        }
-                                            ! [ Ports.loadPublicKey <| encodePublicKey theirPublicKey
-                                              ]
+                                    ( model
+                                    , Ports.loadPublicKey <| encodePublicKey theirPublicKey
+                                    )
 
                                 a ->
                                     model ! [ log "key swap, oops" a ]
@@ -322,4 +309,4 @@ log tag a =
         _ =
             Debug.log tag a
     in
-        Cmd.none
+    Cmd.none

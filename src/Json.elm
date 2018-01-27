@@ -1,8 +1,8 @@
 module Json exposing (..)
 
-import Json.Decode as Decode exposing (Decoder, andThen, fail, field, list, bool, map2, map6, map, string, succeed)
+import Json.Decode as Decode exposing (Decoder, andThen, bool, fail, field, list, map, map2, map6, string, succeed)
 import Json.Encode as Encode
-import Types exposing (ChatCreate, ChatJoin, ConnId(..), PublicKeyRecord, ChatId(..), ScrollData, SocketMessage(..))
+import Types exposing (ChatCreate, ChatId(..), ChatJoin, ConnId(..), PublicKeyRecord, ScrollData, SocketMessage(..))
 
 
 decodeScrollEvent : Decoder ScrollData

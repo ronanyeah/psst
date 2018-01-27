@@ -1,8 +1,6 @@
 module Types exposing (..)
 
-import Animation
 import Dom
-import Element
 import Http
 import Json.Encode exposing (Value)
 import Time exposing (Time)
@@ -14,6 +12,11 @@ type alias ScrollData =
     , scrollTop : Int
     , clientHeight : Int
     }
+
+
+type Device
+    = Mobile
+    | Desktop
 
 
 type Msg
@@ -28,7 +31,6 @@ type Msg
     | ExitChat
     | PublicKeyLoaded ()
     | Resize Window.Size
-    | Animate Animation.Msg
     | Tick Time
     | CbScrollToBottom (Result Dom.Error ())
     | DisplayScrollButton Value
@@ -41,8 +43,7 @@ type alias Model =
     , origin : String
     , wsUrl : String
     , restUrl : String
-    , device : Element.Device
-    , keySpin : Animation.State
+    , device : Device
     , time : Time
     , arrow : Bool
     , scroll : ScrollStatus
