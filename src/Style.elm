@@ -1,9 +1,8 @@
 module Style exposing (..)
 
-import Color exposing (Color, black, rgb)
+import Color exposing (Color, rgb)
 import Element exposing (Attribute)
 import Element.Background as Bg
-import Element.Border as Border
 import Element.Font as Font
 
 
@@ -53,24 +52,11 @@ red =
     rgb 255 0 0
 
 
-deadConn : List (Attribute msg)
-deadConn =
-    [ Bg.color red, font ]
-
-
 msgThem : List (Attribute msg)
 msgThem =
     [ Bg.color ylw
     , Font.size 35
     , Font.alignLeft
-    ]
-
-
-messageBox : List (Attribute msg)
-messageBox =
-    [ Border.rounded 10
-    , Border.dashed
-    , Border.color black
     ]
 
 
@@ -87,14 +73,4 @@ msgSys =
     [ Bg.color pnk
     , Font.size 35
     , Font.center
-    ]
-
-
-button : List (Attribute msg)
-button =
-    [ Border.dashed
-    , Border.color black
-    , Bg.color org
-    , Font.size 30
-    , font
     ]

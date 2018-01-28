@@ -9,3 +9,12 @@ when bool view =
         view
     else
         empty
+
+
+log : String -> a -> Cmd msg
+log tag a =
+    let
+        _ =
+            Debug.log tag a
+    in
+    Cmd.none

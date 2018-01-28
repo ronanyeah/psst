@@ -7,15 +7,6 @@ import { arrayBufferToString, stringToArrayBuffer } from "./helpers.js";
 const crypto =
   window.crypto.subtle || window.crypto.webkitSubtle || window.crypto.msSubtle;
 
-const flags = {
-  origin: window.location.origin,
-  wsUrl: WS_URL,
-  restUrl: REST_URL,
-  maybeChatId: window.location.hash ? window.location.hash.substring(1) : null,
-  shareEnabled: typeof window.navigator.share === "function",
-  copyEnabled: Clipboard.isSupported()
-};
-
 const cryptoEnabled =
   crypto &&
   crypto.generateKey &&
@@ -26,7 +17,7 @@ const cryptoEnabled =
 
 (async () => {
   if (!cryptoEnabled) {
-    return Elm.Main.embed(document.body, [null, flags]);
+    return Elm.Main.embed(document.body, null);
   }
 
   new Clipboard("#copy-button");
@@ -44,7 +35,19 @@ const cryptoEnabled =
 
   const jwk = await crypto.exportKey("jwk", publicKey);
 
-  const app = Elm.Main.embed(document.body, [jwk, flags]);
+  const flags = {
+    origin: window.location.origin,
+    wsUrl: WS_URL,
+    restUrl: REST_URL,
+    maybeChatId: window.location.hash
+      ? window.location.hash.substring(1)
+      : null,
+    shareEnabled: typeof window.navigator.share === "function",
+    copyEnabled: Clipboard.isSupported(),
+    publicKey: jwk
+  };
+
+  const app = Elm.Main.embed(document.body, flags);
 
   app.ports.share.subscribe(url =>
     window.navigator.share({

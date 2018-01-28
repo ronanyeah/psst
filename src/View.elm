@@ -1,7 +1,7 @@
 module View exposing (view)
 
 import Color
-import Element exposing (Attribute, Element, alignBottom, alignLeft, attribute, center, centerY, column, el, empty, fill, height, html, image, layout, moveUp, padding, paragraph, px, row, scrollbars, spacing, text, width)
+import Element exposing (Attribute, Element, alignBottom, alignLeft, attribute, center, centerY, column, el, empty, fill, height, html, inFront, layout, moveUp, padding, paragraph, px, scrollbars, spacing, text, width)
 import Element.Background as Bg
 import Element.Border as Border
 import Element.Events exposing (onClick)
@@ -24,11 +24,6 @@ attr a b =
         |> attribute
 
 
-class : String -> Attribute msg
-class =
-    attr "class"
-
-
 id : String -> Attribute msg
 id =
     attr "id"
@@ -36,7 +31,7 @@ id =
 
 spinner : Element msg
 spinner =
-    el [] <|
+    el [ Font.size 30 ] <|
         html <|
             Html.span [ Html.Attributes.attribute "class" "fas fa-sync fa-spin" ]
                 []
@@ -55,6 +50,7 @@ view { status, origin, time, arrow, shareEnabled, copyEnabled } =
                     , centerY
                     , Element.pointer
                     , onClick CreateChat
+                    , id "start-circle"
                     ]
                 <|
                     el [ center, centerY ] <|
@@ -97,8 +93,16 @@ view { status, origin, time, arrow, shareEnabled, copyEnabled } =
                             button []
                                 { onPress = Just <| Share chatlink
                                 , label =
-                                    el Style.button <|
-                                        text "SHARE"
+                                    el
+                                        [ Border.dashed
+                                        , Border.width 2
+                                        , Border.color Color.black
+                                        , Bg.color Style.org
+                                        , padding 10
+                                        ]
+                                    <|
+                                        text
+                                            "SHARE"
                                 }
                         ]
 
@@ -108,23 +112,20 @@ view { status, origin, time, arrow, shareEnabled, copyEnabled } =
             BWaitingForAKey _ ->
                 spinner
 
-            InChat { lastSeenTyping, messages } ->
+            InChat { lastSeenTyping, messages, isLive, input } ->
                 column
-                    []
+                    [ inFront True <| inputBox input isLive ]
                     [ column
                         [ spacing 7
                         , padding 7
-
-                        --, id "messages"
+                        , id "messages"
                         , scrollbars
                         , onScroll DisplayScrollButton
                         ]
                       <|
-                        List.map msgCard messages
+                        List.indexedMap msgCard messages
                     , viewTyping time lastSeenTyping
                     , when arrow <|
-                        --screen <|
-                        --circle 20
                         el
                             [ onClick ScrollToBottom, alignLeft, alignBottom, moveUp 40 ]
                             empty
@@ -132,96 +133,93 @@ view { status, origin, time, arrow, shareEnabled, copyEnabled } =
                     ]
 
             ErrorView txt ->
-                text txt
+                el [ width fill ] <| paragraph [] [ text txt ]
 
 
-inputBox : Element Msg
-inputBox =
+inputBox : String -> Bool -> Element Msg
+inputBox input isLive =
     el
-        [ alignBottom, center ]
+        [ alignBottom, center, padding 10 ]
     <|
-        row
-            [ padding 2, spacing 2 ]
-            [ Input.multiline
-                (Style.messageBox
-                    ++ [ height <| px 40
-
-                       --, width <|
-                       --px <|
-                       --(viewWidth
-                       --|> flip (/) 4
-                       --|> (*) 3
-                       --)
-                       , onPressEnter Send
-                       , class "message-input"
-                       ]
-                )
-                { onChange =
-                    -- if isLive then
-                    if True then
-                        Just InputChange
-                    else
-                        Nothing
-                , text = "" -- input
-                , label = Input.labelAbove [] empty
-                , notice = Nothing
-                , placeholder = Nothing
-                }
-
-            --, if isLive then
-            , if True then
-                button []
-                    { onPress = Just Send
-                    , label =
-                        el
-                            (Style.button
-                                ++ [ --, width <| px <| (viewWidth |> flip (/) 4)
-                                     height <| px 40
-                                   , class "send-message"
-                                   ]
-                            )
-                        <|
-                            text "send"
-                    }
-              else
-                button []
-                    { onPress = Nothing
-                    , label =
-                        el
-                            (Style.button
-                                ++ [ -- width <| px <| (viewWidth |> flip (/) 4)
-                                     height <| px 40
-                                   , class "conn-lost"
-                                   ]
-                            )
-                        <|
-                            text "🚫"
-                    }
+        Input.text
+            [ onPressEnter Send
+            , id "message-input"
+            , Border.dashed
+            , Border.color Color.black
+            , Border.width 2
+            , padding 10
             ]
+            { onChange =
+                if isLive then
+                    Just InputChange
+                else
+                    Nothing
+            , text = input
+            , label =
+                Input.labelRight [] <|
+                    button []
+                        { onPress =
+                            if isLive then
+                                Just Send
+                            else
+                                Nothing
+                        , label =
+                            el
+                                [ padding 5
+                                , id <|
+                                    if isLive then
+                                        "send-message"
+                                    else
+                                        "conn-lost"
+                                , Border.dashed
+                                , Border.color Color.black
+                                , Border.width 2
+                                , Bg.color Style.org
+                                , Font.size 30
+                                ]
+                            <|
+                                if isLive then
+                                    text "send"
+                                else
+                                    el [] <|
+                                        html <|
+                                            Html.span [ Html.Attributes.attribute "class" "fas fa-ban" ]
+                                                []
+                        }
+            , notice = Nothing
+            , placeholder = Nothing
+            }
 
 
 viewTyping : Time -> Time -> Element msg
 viewTyping currentTime lastSeenTyping =
     when ((currentTime - lastSeenTyping) < 5000) <|
-        image
-            [ class "typing" ]
-            { src = "/typing.svg", description = "is-typing" }
+        el [ id "typing" ] <|
+            html <|
+                Html.span [ Html.Attributes.attribute "class" "fas fa-ellipsis-h" ]
+                    []
 
 
-msgCard : Message -> Element msg
-msgCard message =
+msgCard : Int -> Message -> Element msg
+msgCard i message =
+    let
+        attrs =
+            [ padding 4
+            , id <| "message-" ++ toString i
+            ]
+    in
     case message of
         Self content ->
-            paragraph (Style.msgSelf ++ [ padding 4 ]) [ text content ]
+            paragraph (Style.msgSelf ++ attrs) [ text content ]
 
         Them content ->
-            paragraph (Style.msgThem ++ [ class "message", padding 4 ]) [ text content ]
+            paragraph (Style.msgThem ++ attrs) [ text content ]
 
         ChatStart ->
-            paragraph (Style.msgSys ++ [ padding 4, width fill ]) [ text "Ready to chat!" ]
+            paragraph (Style.msgSys ++ attrs) [ text "Ready to chat!" ]
 
         ConnEnd ->
-            paragraph (Style.msgSys ++ [ padding 4 ]) [ text "Connection lost!" ]
+            paragraph (Style.msgSys ++ attrs) [ text "Connection lost!" ]
 
 
 onScroll : (Json.Encode.Value -> msg) -> Attribute msg

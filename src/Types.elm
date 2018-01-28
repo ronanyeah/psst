@@ -29,7 +29,7 @@ type Msg
     | CbEncrypt String
     | CbDecrypt String
     | ExitChat
-    | PublicKeyLoaded ()
+    | PublicKeyLoaded
     | Resize Window.Size
     | Tick Time
     | CbScrollToBottom (Result Dom.Error ())
@@ -49,7 +49,7 @@ type alias Model =
     , scroll : ScrollStatus
     , shareEnabled : Bool
     , copyEnabled : Bool
-    , myPublicKey : PublicKeyRecord
+    , myPublicKey : CryptoKey
     }
 
 
@@ -60,6 +60,7 @@ type alias Flags =
     , restUrl : String
     , shareEnabled : Bool
     , copyEnabled : Bool
+    , publicKey : CryptoKey
     }
 
 
@@ -78,7 +79,7 @@ type ChatId
     = ChatId String
 
 
-type alias PublicKeyRecord =
+type alias CryptoKey =
     { alg : String
     , e : String
     , ext : Bool
@@ -121,7 +122,7 @@ type alias ChatArgs =
 
 type SocketMessage
     = ReceiveMessage String
-    | Key PublicKeyRecord
+    | Key CryptoKey
     | ChatUnavailable
     | Typing
     | ConnectionDead
