@@ -1,43 +1,48 @@
 const puppeteer = require("puppeteer");
 const assert = require("assert");
+
+const getText = async el =>
+  (await (await el).getProperty("innerText")).jsonValue();
+
 (async () => {
   // sandbox issues: https://github.com/GoogleChrome/puppeteer/issues/290#issuecomment-322851507
   const browser = await puppeteer.launch({ args: ["--no-sandbox"] });
   const a = await browser.newPage();
 
   await a.goto("http://localhost:8080/");
-  await a.waitFor(".start-circle");
 
-  await a.click(".start-circle");
+  await a.waitFor("#start-circle");
 
-  await a.waitFor(".chat-link");
+  await a.click("#start-circle");
 
-  const link = await a.$eval(".chat-link", x => x.innerText);
+  const chatLink = await getText(a.waitForSelector("#chat-link"));
 
   const b = await browser.newPage();
-  await b.goto(link);
+  await b.goto(chatLink);
 
   await b.waitFor("#messages");
+
   await a.waitFor("#messages");
 
-  await a.focus(".message-input");
-  await a.type("ronan ☘️");
+  const testText = "How do you capture a very dangerous animal?";
 
-  await b.waitFor(".typing");
+  await a.type("#message-input", testText, { delay: 10 });
 
-  await a.click(".send-message");
+  await b.waitFor("#typing");
 
-  await b.waitFor(".message");
+  await a.click("#send-message");
 
-  assert(await b.$eval(".message", x => x.innerText === "ronan ☘️"));
+  const txt = await getText(b.waitForSelector("#message-1"));
+
+  assert(txt === testText);
 
   await b.close();
 
-  await a.focus(".message-input");
-  await a.type("x");
-  await a.click(".send-message");
+  await a.type("#message-input", "x");
 
-  await a.waitFor(".conn-lost");
+  await a.click("#send-message");
+
+  await a.waitFor("#conn-lost");
 
   return browser.close();
 })().catch(err => {
