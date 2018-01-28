@@ -1,6 +1,7 @@
 {
   "name": "psst",
   "scripts": {
+    "start": "http-server ./public",
     "build": "webpack -p",
     "watch": "webpack-dev-server --hot",
     "test": "node test/index.js"
@@ -19,6 +20,7 @@
     "clipboard": "^1.7.1",
     "copy-webpack-plugin": "^4.3.1",
     "elm-webpack-loader": "^4.4.0",
+    "http-server": "^0.11.1",
     "webpack": "^3.10.0"
   },
   "devDependencies": {

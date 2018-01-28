@@ -1,0 +1,33 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/node:8.9.1-stretch-browsers
+
+    working_directory: ~/repo
+
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+          - v1-dependencies-{{ checksum "package.json" }}
+          - v1-dependencies-
+
+      - run: npm install
+
+      # https://gist.github.com/bkuhlmann/765abad66f918dac14eb49ea5f48b014
+      - run: git clone https://github.com/obmarg/libsysconfcpus.git
+      - run: cd libsysconfcpus && ./configure && make && sudo make install && cd ..
+      - run: sysconfcpus --num 1 npm run build
+
+      - run:
+          command: npm start
+          background: true
+
+      - save_cache:
+          paths:
+            - node_modules
+          key: v1-dependencies-{{ checksum "package.json" }}
+
+      - run: npm test

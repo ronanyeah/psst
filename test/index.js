@@ -6,7 +6,9 @@ const getText = async el =>
 
 (async () => {
   // sandbox issues: https://github.com/GoogleChrome/puppeteer/issues/290#issuecomment-322851507
-  const browser = await puppeteer.launch({ args: ["--no-sandbox"] });
+  const browser = await puppeteer.launch({
+    args: ["--no-sandbox", "--disable-setuid-sandbox"]
+  });
   const a = await browser.newPage();
 
   await a.goto("http://localhost:8080/");
