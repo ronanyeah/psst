@@ -1,8 +1,26 @@
 module Json exposing (..)
 
-import Json.Decode as Decode exposing (Decoder, andThen, fail, field, list, bool, map2, map6, map, string, succeed)
+import Json.Decode as Decode exposing (Decoder, andThen, bool, fail, field, list, map, map2, map6, nullable, string, succeed)
 import Json.Encode as Encode
-import Types exposing (ChatCreate, ChatJoin, ConnId(..), PublicKeyRecord, ChatId(..), ScrollData, SocketMessage(..))
+import Types exposing (ChatCreate, ChatId(..), ChatJoin, ConnId(..), CryptoKey, Flags, ScrollData, SocketMessage(..))
+
+
+encodeChatId : ChatId -> Encode.Value
+encodeChatId (ChatId chatId) =
+    Encode.string chatId
+
+
+decodeFlags : Decoder (Maybe Flags)
+decodeFlags =
+    Decode.map7 Flags
+        (field "maybeChatId" (nullable string))
+        (field "origin" string)
+        (field "wsUrl" string)
+        (field "restUrl" string)
+        (field "shareEnabled" bool)
+        (field "copyEnabled" bool)
+        (field "publicKey" decodePublicKey)
+        |> Decode.nullable
 
 
 decodeScrollEvent : Decoder ScrollData
@@ -13,7 +31,7 @@ decodeScrollEvent =
         (Decode.at [ "target", "clientHeight" ] Decode.int)
 
 
-encodePublicKey : PublicKeyRecord -> Encode.Value
+encodePublicKey : CryptoKey -> Encode.Value
 encodePublicKey { alg, e, ext, key_ops, kty, n } =
     Encode.object
         [ ( "alg", Encode.string alg )
@@ -34,9 +52,9 @@ encodeDataTransmit (ConnId id) payload =
         |> Encode.encode 0
 
 
-decodePublicKey : Decoder PublicKeyRecord
+decodePublicKey : Decoder CryptoKey
 decodePublicKey =
-    map6 PublicKeyRecord
+    map6 CryptoKey
         (field "alg" string)
         (field "e" string)
         (field "ext" bool)

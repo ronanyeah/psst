@@ -1,48 +1,51 @@
-const puppeteer = require('puppeteer')
-const assert = require('assert')
+const puppeteer = require("puppeteer");
+const assert = require("assert");
 
-;(async () => {
+const getText = async el =>
+  (await (await el).getProperty("innerText")).jsonValue();
+
+(async () => {
   // sandbox issues: https://github.com/GoogleChrome/puppeteer/issues/290#issuecomment-322851507
-  const browser = await puppeteer.launch({ args: ['--no-sandbox'] })
-  const a = await browser.newPage()
+  const browser = await puppeteer.launch({ args: ["--no-sandbox"] });
+  const a = await browser.newPage();
 
-  await a.goto('http://localhost:8080/')
-  await a.waitFor('.start-circle')
+  await a.goto("http://localhost:8080/");
 
-  await a.click('.start-circle')
+  await a.waitFor("#start-circle");
 
-  await a.waitFor('.chat-link')
+  await a.click("#start-circle");
 
-  const link = await a.$eval('.chat-link', x => x.innerText)
+  const chatLink = await getText(a.waitForSelector("#chat-link"));
 
-  const b = await browser.newPage()
-  await b.goto(link)
+  const b = await browser.newPage();
+  await b.goto(chatLink);
 
-  await b.waitFor('#messages')
-  await a.waitFor('#messages')
+  await b.waitFor("#messages");
 
-  await a.focus('.message-input')
-  await a.type('ronan ☘️')
+  await a.waitFor("#messages");
 
-  await b.waitFor('.typing')
+  const testText = "How do you capture a very dangerous animal?";
 
-  await a.click('.send-message')
+  await a.type("#message-input", testText, { delay: 10 });
 
-  await b.waitFor('.message')
+  await b.waitFor("#typing");
 
-  assert(await b.$eval('.message', x => x.innerText === 'ronan ☘️'))
+  await a.click("#send-message");
 
-  await b.close()
+  const txt = await getText(b.waitForSelector("#message-1"));
 
-  await a.focus('.message-input')
-  await a.type('x')
-  await a.click('.send-message')
+  assert(txt === testText);
 
-  await a.waitFor('.conn-lost')
+  await b.close();
 
-  return browser.close()
-})()
-.catch(err => {
-  console.error(err)
-  process.exit(1)
-})
+  await a.type("#message-input", "x");
+
+  await a.click("#send-message");
+
+  await a.waitFor("#conn-lost");
+
+  return browser.close();
+})().catch(err => {
+  console.error(err);
+  return process.exit(1);
+});

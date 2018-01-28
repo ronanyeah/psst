@@ -1,16 +1,15 @@
 module Update exposing (update)
 
-import Animation
 import Dom.Scroll exposing (toBottom)
-import Element
 import Http
-import Json exposing (decodeChatCreate, decodeScrollEvent, decodeSocketText, encodeDataTransmit, encodePublicKey)
+import Json exposing (decodeChatCreate, decodeScrollEvent, decodeSocketText, encodeChatId, encodeDataTransmit, encodePublicKey)
 import Json.Decode
 import Json.Encode
-import Navigation exposing (newUrl)
+import Navigation
 import Ports
 import Task
-import Types exposing (ConnId(..), Message(..), Model, Msg(..), ChatId(ChatId), SocketMessage(..), ScrollStatus(..), Status(..))
+import Types exposing (ConnId(..), Device(..), Message(..), Model, Msg(..), ScrollStatus(..), SocketMessage(..), Status(..))
+import Utils exposing (log)
 import WebSocket
 
 
@@ -20,82 +19,78 @@ update msg model =
         CbCreateChat res ->
             case res of
                 Ok { chatId, connId } ->
-                    { model | status = AWaitingForBKey connId chatId }
-                        ! [ let
-                                (ChatId chatIdString) =
-                                    chatId
-                            in
-                                Json.Encode.object [ ( "A_JOIN", Json.Encode.string chatIdString ) ]
-                                    |> Json.Encode.encode 0
-                                    |> WebSocket.send model.wsUrl
-                          ]
+                    ( { model | status = AWaitingForBKey connId chatId }
+                    , [ ( "A_JOIN", encodeChatId chatId ) ]
+                        |> Json.Encode.object
+                        |> Json.Encode.encode 0
+                        |> WebSocket.send model.wsUrl
+                    )
 
                 Err err ->
-                    model ! [ log "chat create" err ]
+                    ( model, log "chat create" err )
 
         CbJoinChat res ->
             case res of
                 Ok { aId, chatId } ->
-                    { model | status = BWaitingForAKey aId }
-                        ! [ let
-                                (ChatId chatIdString) =
-                                    chatId
-                            in
-                                Json.Encode.object [ ( "B_JOIN", Json.Encode.string chatIdString ) ]
-                                    |> Json.Encode.encode 0
-                                    |> WebSocket.send model.wsUrl
-                          , [ ( "key", encodePublicKey model.myPublicKey )
-                            ]
-                                |> Json.Encode.object
-                                |> encodeDataTransmit aId
-                                |> WebSocket.send model.wsUrl
-                          ]
+                    ( { model | status = BWaitingForAKey aId }
+                    , Cmd.batch
+                        [ [ ( "B_JOIN", encodeChatId chatId ) ]
+                            |> Json.Encode.object
+                            |> Json.Encode.encode 0
+                            |> WebSocket.send model.wsUrl
+                        , [ ( "key", encodePublicKey model.myPublicKey ) ]
+                            |> Json.Encode.object
+                            |> encodeDataTransmit aId
+                            |> WebSocket.send model.wsUrl
+                        ]
+                    )
 
                 Err err ->
-                    model ! [ log "chat join" err ]
+                    ( model, log "chat join" err )
 
         CbScrollToBottom _ ->
-            { model | arrow = False } ! []
+            ( { model | arrow = False }, Cmd.none )
 
         CreateChat ->
-            model ! [ createChat model.restUrl ]
+            ( model, createChat model.restUrl )
 
         InputChange str ->
             case model.status of
-                InChat ({ lastTypedPing } as args) ->
+                InChat ({ connId, lastTypedPing } as args) ->
                     let
-                        ( pinged, cmd ) =
-                            case ( model.status, (model.time - lastTypedPing) > 4000 ) of
-                                ( InChat { connId }, True ) ->
-                                    ( model.time
-                                    , Json.Encode.string "TYPING"
-                                        |> encodeDataTransmit connId
-                                        |> WebSocket.send model.wsUrl
-                                    )
-
-                                _ ->
-                                    ( lastTypedPing, Cmd.none )
+                        shouldPing =
+                            (model.time - lastTypedPing) > 4000
                     in
-                        { model
-                            | status =
-                                InChat
-                                    { args
-                                        | input = str
-                                        , lastTypedPing = pinged
-                                    }
-                        }
-                            ! [ cmd ]
+                    ( { model
+                        | status =
+                            InChat
+                                { args
+                                    | input = str
+                                    , lastTypedPing =
+                                        if shouldPing then
+                                            model.time
+                                        else
+                                            lastTypedPing
+                                }
+                      }
+                    , if shouldPing then
+                        Json.Encode.string "TYPING"
+                            |> encodeDataTransmit connId
+                            |> WebSocket.send model.wsUrl
+                      else
+                        Cmd.none
+                    )
 
                 _ ->
-                    model ! []
+                    ( model, Cmd.none )
 
         Send ->
             case model.status of
                 InChat ({ input, messages } as args) ->
                     if String.isEmpty input then
-                        model ! []
+                        ( model, Cmd.none )
                     else
-                        { model
+                        ( { model
                             | status =
                                 InChat
                                     { args
@@ -103,70 +98,70 @@ update msg model =
                                         , messages = messages ++ [ Self input ]
                                         , lastTypedPing = 0
                                     }
-                        }
-                            ! [ Ports.encrypt input, scrollToBottom ]
+                          }
+                        , Cmd.batch [ Ports.encrypt input, scrollToBottom ]
+                        )
 
                 _ ->
-                    model ! []
+                    ( model, Cmd.none )
 
         Resize size ->
-            { model | device = Element.classifyDevice size } ! []
+            ( { model
+                | device =
+                    if size.width <= 600 then
+                        Mobile
+                    else
+                        Desktop
+              }
+            , Cmd.none
+            )
 
         CbEncrypt txt ->
             case model.status of
                 InChat { connId } ->
-                    let
-                        messageTransfer =
-                            [ ( "message", Json.Encode.string txt )
-                            ]
-                                |> Json.Encode.object
-                                |> encodeDataTransmit connId
-                                |> WebSocket.send model.wsUrl
-                    in
-                        model
-                            ! [ messageTransfer ]
+                    ( model
+                    , [ ( "message", Json.Encode.string txt ) ]
+                        |> Json.Encode.object
+                        |> encodeDataTransmit connId
+                        |> WebSocket.send model.wsUrl
+                    )
 
                 a ->
-                    model ! [ log "cbEncrypt, oops" a ]
+                    ( model, log "cbEncrypt, oops" a )
 
         CbDecrypt txt ->
             case model.status of
                 InChat ({ messages } as args) ->
-                    { model
+                    ( { model
                         | status =
                             InChat
                                 { args
                                     | messages = messages ++ [ Them txt ]
                                     , lastSeenTyping = 0
                                 }
-                    }
-                        ! [ scrollToBottom ]
+                      }
+                    , scrollToBottom
+                    )
 
                 _ ->
-                    model ! []
-
-        Animate animMsg ->
-            { model
-                | keySpin = Animation.update animMsg model.keySpin
-            }
-                ! []
+                    ( model, Cmd.none )
 
         Tick time ->
-            { model | time = time } ! []
+            ( { model | time = time }, Cmd.none )
 
         ScrollToBottom ->
-            model ! [ scrollToBottom ]
+            ( model, scrollToBottom )
 
         Share url ->
-            model ! [ Ports.share url ]
+            ( model, Ports.share url )
 
         ExitChat ->
-            { model | status = Start } ! []
+            ( { model | status = Start }, Cmd.none )
 
-        PublicKeyLoaded () ->
+        PublicKeyLoaded ->
             let
                 startChat connId =
-                    { model
+                    ( { model
                         | status =
                             InChat
                                 { connId = connId
@@ -176,18 +171,19 @@ update msg model =
                                 , isLive = True
                                 , input = ""
                                 }
-                    }
-                        ! [ newUrl "/" ]
+                      }
+                    , Navigation.modifyUrl "/"
+                    )
             in
-                case model.status of
-                    AWaitingForBKey connId _ ->
-                        startChat connId
+            case model.status of
+                AWaitingForBKey connId _ ->
+                    startChat connId
 
-                    BWaitingForAKey connId ->
-                        startChat connId
+                BWaitingForAKey connId ->
+                    startChat connId
 
-                    _ ->
-                        model ! []
+                _ ->
+                    ( model, Cmd.none )
 
         DisplayScrollButton event ->
             case model.scroll of
@@ -196,7 +192,7 @@ update msg model =
                         ( h, arrow ) =
                             isBottom event
                     in
-                        { model | arrow = not arrow, scroll = Moving model.time h } ! []
+                    ( { model | arrow = not arrow, scroll = Moving model.time h }, Cmd.none )
 
                 Moving pre h ->
                     if (model.time - pre) > 50 then
@@ -210,51 +206,63 @@ update msg model =
                                 else
                                     Moving model.time newH
                         in
-                            { model | arrow = not arrow, scroll = scroll } ! []
+                        ( { model | arrow = not arrow, scroll = scroll }, Cmd.none )
                     else
-                        model ! []
+                        ( model, Cmd.none )
 
         CbWebsocketMessage str ->
             case Json.Decode.decodeString decodeSocketText str of
                 Ok socketMsg ->
                     case socketMsg of
                         ReceiveMessage txt ->
-                            model ! [ Ports.decrypt txt ]
+                            ( model, Ports.decrypt txt )
 
                         Typing ->
                             case model.status of
                                 InChat args ->
-                                    { model
+                                    ( { model
                                         | status =
                                             InChat { args | lastSeenTyping = model.time }
-                                    }
-                                        ! []
+                                      }
+                                    , Cmd.none
+                                    )
 
                                 _ ->
-                                    model ! []
+                                    ( model, Cmd.none )
 
                         ConnectionDead ->
                             case model.status of
                                 InChat ({ messages } as args) ->
-                                    { model
+                                    ( { model
                                         | status =
-                                            InChat { args | isLive = False, messages = messages ++ [ ConnEnd ] }
-                                    }
-                                        ! []
+                                            InChat
+                                                { args
+                                                    | isLive = False
+                                                    , messages = messages ++ [ ConnEnd ]
+                                                }
+                                      }
+                                    , Cmd.none
+                                    )
 
                                 _ ->
-                                    model ! [ log "enum" "conn doesn't exist" ]
+                                    ( { model
+                                        | status = Start
+                                      }
+                                    , Cmd.batch
+                                        [ log "!" "chat unavailable"
+                                        , Navigation.modifyUrl "/"
+                                        ]
+                                    )
 
                         ChatUnavailable ->
-                            { model
+                            ( { model
                                 | status = Start
-                                , keySpin =
-                                    Animation.interrupt
-                                        [ Animation.set [ Animation.rotate (Animation.deg 0) ]
-                                        ]
-                                        model.keySpin
-                            }
-                                ! [ log "chat unavailable" 0, newUrl "/" ]
+                              }
+                            , Cmd.batch
+                                [ log "!" "chat unavailable"
+                                , Navigation.modifyUrl "/"
+                                ]
+                            )
 
                         Key theirPublicKey ->
                             case model.status of
@@ -267,30 +275,23 @@ update msg model =
                                                 |> encodeDataTransmit connId
                                                 |> WebSocket.send model.wsUrl
                                     in
-                                        model
-                                            ! [ keyTransfer
-                                              , Ports.loadPublicKey <| encodePublicKey theirPublicKey
-                                              ]
+                                    ( model
+                                    , Cmd.batch
+                                        [ keyTransfer
+                                        , Ports.loadPublicKey <| encodePublicKey theirPublicKey
+                                        ]
+                                    )
 
                                 BWaitingForAKey _ ->
-                                    let
-                                        keySpin =
-                                            Animation.interrupt
-                                                [ Animation.set [ Animation.rotate (Animation.deg 0) ]
-                                                ]
-                                                model.keySpin
-                                    in
-                                        { model
-                                            | keySpin = keySpin
-                                        }
-                                            ! [ Ports.loadPublicKey <| encodePublicKey theirPublicKey
-                                              ]
+                                    ( model
+                                    , Ports.loadPublicKey <| encodePublicKey theirPublicKey
+                                    )
 
                                 a ->
-                                    model ! [ log "key swap, oops" a ]
+                                    ( model, log "key swap, oops" a )
 
                 Err err ->
-                    model ! [ log "socket message error" err ]
+                    ( model, log "socket message error" err )
 
 
 createChat : String -> Cmd Msg
@@ -299,7 +300,7 @@ createChat restUrl =
         |> Http.send CbCreateChat
 
 
-isBottom : Json.Decode.Value -> ( number, Bool )
+isBottom : Json.Decode.Value -> ( Int, Bool )
 isBottom =
     Json.Decode.decodeValue decodeScrollEvent
         >> Result.map
@@ -314,12 +315,3 @@ scrollToBottom : Cmd Msg
 scrollToBottom =
     toBottom "messages"
         |> Task.attempt CbScrollToBottom
-
-
-log : String -> a -> Cmd Msg
-log tag a =
-    let
-        _ =
-            Debug.log tag a
-    in
-        Cmd.none

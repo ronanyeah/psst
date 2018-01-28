@@ -1,35 +1,42 @@
+const CopyWebpackPlugin = require("copy-webpack-plugin");
 const webpack = require("webpack");
 const { resolve } = require("path");
 
-const PROD = process.env.NODE_ENV === "production";
+const { NODE_ENV, WS_URL, REST_URL, DEBUG } = process.env;
 
-if (!PROD) {
-  require("dotenv").config();
-}
+const publicFolder = resolve("./public");
 
 module.exports = {
   entry: "./src/index.js",
   output: {
-    path: resolve("./public/"),
+    path: publicFolder,
     filename: "bundle.js"
   },
   devServer: {
-    contentBase: "./public"
+    contentBase: publicFolder
   },
   module: {
     rules: [
       {
+        test: /\.js$/,
+        use: {
+          loader: "babel-loader",
+          options: {
+            presets: ["@babel/preset-env"]
+          }
+        }
+      },
+      {
         test: /\.elm$/,
         exclude: [/elm-stuff/, /node_modules/],
         use: [
-          ...(PROD ? [] : [{ loader: "elm-hot-loader" }]),
+          ...(NODE_ENV === "development" ? [{ loader: "elm-hot-loader" }] : []),
           {
             loader: "elm-webpack-loader",
             options: {
               cwd: __dirname,
-              debug: false,
-              //debug: !PROD,
-              warn: !PROD
+              debug: DEBUG === "true",
+              warn: NODE_ENV === "development"
             }
           }
         ]
@@ -38,11 +45,11 @@ module.exports = {
   },
   plugins: [
     new webpack.DefinePlugin({
-      WS_URL: JSON.stringify(process.env.WS_URL),
-      REST_URL: JSON.stringify(process.env.REST_URL)
+      WS_URL: `"${WS_URL}"`,
+      REST_URL: `"${REST_URL}"`
     }),
-    ...(PROD
-      ? [new webpack.optimize.UglifyJsPlugin()]
-      : [new webpack.NamedModulesPlugin(), new webpack.NoEmitOnErrorsPlugin()])
+    new webpack.NamedModulesPlugin(),
+    new webpack.NoEmitOnErrorsPlugin(),
+    new CopyWebpackPlugin(["static"])
   ]
 };

@@ -1,8 +1,6 @@
 module Types exposing (..)
 
-import Animation
 import Dom
-import Element
 import Http
 import Json.Encode exposing (Value)
 import Time exposing (Time)
@@ -16,6 +14,11 @@ type alias ScrollData =
     }
 
 
+type Device
+    = Mobile
+    | Desktop
+
+
 type Msg
     = CreateChat
     | CbWebsocketMessage String
@@ -26,9 +29,8 @@ type Msg
     | CbEncrypt String
     | CbDecrypt String
     | ExitChat
-    | PublicKeyLoaded ()
+    | PublicKeyLoaded
     | Resize Window.Size
-    | Animate Animation.Msg
     | Tick Time
     | CbScrollToBottom (Result Dom.Error ())
     | DisplayScrollButton Value
@@ -41,14 +43,13 @@ type alias Model =
     , origin : String
     , wsUrl : String
     , restUrl : String
-    , device : Element.Device
-    , keySpin : Animation.State
+    , device : Device
     , time : Time
     , arrow : Bool
     , scroll : ScrollStatus
     , shareEnabled : Bool
     , copyEnabled : Bool
-    , myPublicKey : PublicKeyRecord
+    , myPublicKey : CryptoKey
     }
 
 
@@ -59,6 +60,7 @@ type alias Flags =
     , restUrl : String
     , shareEnabled : Bool
     , copyEnabled : Bool
+    , publicKey : CryptoKey
     }
 
 
@@ -77,7 +79,7 @@ type ChatId
     = ChatId String
 
 
-type alias PublicKeyRecord =
+type alias CryptoKey =
     { alg : String
     , e : String
     , ext : Bool
@@ -120,7 +122,7 @@ type alias ChatArgs =
 
 type SocketMessage
     = ReceiveMessage String
-    | Key PublicKeyRecord
+    | Key CryptoKey
     | ChatUnavailable
     | Typing
     | ConnectionDead
