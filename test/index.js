@@ -46,6 +46,7 @@ const getText = async el =>
 
   await a.waitFor("#conn-lost");
 
+  console.log("Success!");
   return browser.close();
 })().catch(err => {
   console.error(err);
