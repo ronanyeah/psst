@@ -13,19 +13,20 @@
     "url": "git+https://github.com/ronanyeah/psst.git"
   },
   "dependencies": {
-    "@babel/core": "^7.0.0-beta.38",
-    "@babel/preset-env": "^7.0.0-beta.38",
-    "babel-loader": "^8.0.0-beta.0",
+    "@babel/core": "^7.0.0-beta.52",
+    "@babel/preset-env": "^7.0.0-beta.52",
+    "babel-loader": "^8.0.0-beta.4",
     "babel-polyfill": "^6.26.0",
-    "clipboard": "^1.7.1",
-    "copy-webpack-plugin": "^4.3.1",
-    "elm-webpack-loader": "^4.4.0",
+    "clipboard": "^2.0.1",
+    "copy-webpack-plugin": "^4.5.2",
+    "elm-webpack-loader": "^4.5.0",
     "http-server": "^0.11.1",
-    "webpack": "^3.10.0"
+    "webpack": "^4.15.1",
+    "webpack-cli": "^3.0.8"
   },
   "devDependencies": {
     "elm-hot-loader": "^0.5.4",
-    "puppeteer": "^1.0.0",
-    "webpack-dev-server": "^2.11.1"
+    "puppeteer": "^1.5.0",
+    "webpack-dev-server": "^3.1.4"
   }
 }

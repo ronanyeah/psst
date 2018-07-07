@@ -6,7 +6,10 @@ const { NODE_ENV, WS_URL, REST_URL, DEBUG } = process.env;
 
 const publicFolder = resolve("./public");
 
+const production = NODE_ENV === "production";
+
 module.exports = {
+  mode: production ? "production" : "development",
   entry: "./src/index.js",
   output: {
     path: publicFolder,
@@ -30,13 +33,13 @@ module.exports = {
         test: /\.elm$/,
         exclude: [/elm-stuff/, /node_modules/],
         use: [
-          ...(NODE_ENV === "development" ? [{ loader: "elm-hot-loader" }] : []),
+          ...(production ? [] : [{ loader: "elm-hot-loader" }]),
           {
             loader: "elm-webpack-loader",
             options: {
               cwd: __dirname,
               debug: DEBUG === "true",
-              warn: NODE_ENV === "development"
+              warn: !production
             }
           }
         ]
