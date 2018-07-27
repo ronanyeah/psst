@@ -31,10 +31,8 @@ id =
 
 spinner : Element msg
 spinner =
-    el [ Font.size 30 ] <|
-        html <|
-            Html.span [ Html.Attributes.attribute "class" "fas fa-sync fa-spin" ]
-                []
+    -- TODO: Add spin and font css
+    el [ Font.size 30 ] <| text <| "↻"
 
 
 view : Model -> Html Msg
