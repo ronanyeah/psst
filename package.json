@@ -2,7 +2,7 @@
   "name": "psst",
   "scripts": {
     "start": "http-server ./public",
-    "build": "webpack -p",
+    "build": "webpack",
     "watch": "webpack-dev-server --hot",
     "test": "node test/index.js"
   },
