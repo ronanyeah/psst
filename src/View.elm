@@ -1,7 +1,7 @@
 module View exposing (view)
 
 import Color
-import Element exposing (Attribute, Element, alignBottom, alignLeft, attribute, center, centerY, column, el, empty, fill, height, html, inFront, layout, moveUp, padding, paragraph, px, scrollbars, spacing, text, width)
+import Element exposing (Attribute, Element, alignBottom, alignLeft, centerX, centerY, column, el, fill, height, html, htmlAttribute, inFront, layout, moveUp, none, padding, paragraph, px, scrollbars, shrink, spacing, text, width)
 import Element.Background as Bg
 import Element.Border as Border
 import Element.Events exposing (onClick)
@@ -18,21 +18,27 @@ import Types exposing (ChatId(..), Message(..), Model, Msg(..), Status(..))
 import Utils exposing (when)
 
 
-attr : String -> String -> Attribute msg
-attr a b =
-    Html.Attributes.attribute a b
-        |> attribute
-
-
 id : String -> Attribute msg
 id =
-    attr "id"
+    Html.Attributes.id
+        >> htmlAttribute
+
+
+rotate : Attribute msg
+rotate =
+    Html.Attributes.style [ ( "animation", "rotation 2s infinite linear" ) ]
+        |> Element.htmlAttribute
 
 
 spinner : Element msg
 spinner =
-    -- TODO: Add spin and font css
-    el [ Font.size 30 ] <| text <| "↻"
+    el
+        [ Font.size 30
+        , rotate
+        ]
+    <|
+        text <|
+            "↻"
 
 
 view : Model -> Html Msg
@@ -51,7 +57,7 @@ view { status, origin, time, arrow, shareEnabled, copyEnabled } =
                     , id "start-circle"
                     ]
                 <|
-                    el [ center, centerY ] <|
+                    el [ centerX, centerY ] <|
                         text
                             "Start"
 
@@ -60,49 +66,49 @@ view { status, origin, time, arrow, shareEnabled, copyEnabled } =
                     chatlink =
                         origin ++ "#" ++ chatId
                 in
-                el [ center, centerY ] <|
-                    column
-                        [ spacing 20 ]
-                        [ el
-                            [ Bg.color Style.blu, Font.size 20, padding 10 ]
-                          <|
-                            text "Share this:"
-                        , el
-                            [ Bg.color Style.ylw, id "chat-link", padding 10 ]
-                          <|
-                            text chatlink
-                        , when copyEnabled <|
-                            button []
-                                { onPress = Nothing
-                                , label =
-                                    el
-                                        [ id "copy-button"
-                                        , attr "data-clipboard-text" chatlink
-                                        , Border.dashed
-                                        , Border.width 2
-                                        , Border.color Color.black
-                                        , Bg.color Style.org
-                                        , padding 10
-                                        ]
-                                    <|
-                                        text "COPY"
-                                }
-                        , when shareEnabled <|
-                            button []
-                                { onPress = Just <| Share chatlink
-                                , label =
-                                    el
-                                        [ Border.dashed
-                                        , Border.width 2
-                                        , Border.color Color.black
-                                        , Bg.color Style.org
-                                        , padding 10
-                                        ]
-                                    <|
-                                        text
-                                            "SHARE"
-                                }
-                        ]
+                column
+                    [ spacing 20, height shrink, centerY ]
+                    [ el
+                        [ centerX, Bg.color Style.blu, Font.size 20, padding 10 ]
+                      <|
+                        text "Share this:"
+                    , el
+                        [ centerX, Bg.color Style.ylw, id "chat-link", padding 10 ]
+                      <|
+                        text chatlink
+                    , when copyEnabled <|
+                        button [ centerX ]
+                            { onPress = Nothing
+                            , label =
+                                el
+                                    [ id "copy-button"
+                                    , Html.Attributes.attribute "data-clipboard-text" chatlink
+                                        |> htmlAttribute
+                                    , Border.dashed
+                                    , Border.width 2
+                                    , Border.color Color.black
+                                    , Bg.color Style.org
+                                    , padding 10
+                                    ]
+                                <|
+                                    text "COPY"
+                            }
+                    , when shareEnabled <|
+                        button [ centerX ]
+                            { onPress = Just <| Share chatlink
+                            , label =
+                                el
+                                    [ Border.dashed
+                                    , Border.width 2
+                                    , Border.color Color.black
+                                    , Bg.color Style.org
+                                    , padding 10
+                                    ]
+                                <|
+                                    text
+                                        "SHARE"
+                            }
+                    ]
 
             BJoining ->
                 spinner
@@ -112,7 +118,7 @@ view { status, origin, time, arrow, shareEnabled, copyEnabled } =
 
             InChat { lastSeenTyping, messages, isLive, input } ->
                 column
-                    [ inFront True <| inputBox input isLive ]
+                    [ inFront <| inputBox input isLive ]
                     [ column
                         [ spacing 7
                         , padding 7
@@ -126,8 +132,8 @@ view { status, origin, time, arrow, shareEnabled, copyEnabled } =
                     , when arrow <|
                         el
                             [ onClick ScrollToBottom, alignLeft, alignBottom, moveUp 40 ]
-                            empty
-                    , el [ height <| px 40 ] empty
+                            none
+                    , el [ height <| px 40 ] none
                     ]
 
             ErrorView txt ->
@@ -137,7 +143,7 @@ view { status, origin, time, arrow, shareEnabled, copyEnabled } =
 inputBox : String -> Bool -> Element Msg
 inputBox input isLive =
     el
-        [ alignBottom, center, padding 10 ]
+        [ alignBottom, centerX, padding 10 ]
     <|
         Input.text
             [ onPressEnter Send
@@ -184,7 +190,6 @@ inputBox input isLive =
                                             Html.span [ Html.Attributes.attribute "class" "fas fa-ban" ]
                                                 []
                         }
-            , notice = Nothing
             , placeholder = Nothing
             }
 
@@ -224,7 +229,7 @@ onScroll : (Json.Encode.Value -> msg) -> Attribute msg
 onScroll msg =
     Json.Decode.map msg Json.Decode.value
         |> on "scroll"
-        |> attribute
+        |> htmlAttribute
 
 
 onPressEnter : msg -> Attribute msg
@@ -238,4 +243,4 @@ onPressEnter msg =
                     Json.Decode.fail "not enter"
             )
         |> on "keyup"
-        |> attribute
+        |> htmlAttribute

@@ -1,6 +1,6 @@
 module Utils exposing (..)
 
-import Element exposing (Element, empty)
+import Element exposing (Element, none)
 
 
 when : Bool -> Element msg -> Element msg
@@ -8,13 +8,9 @@ when bool view =
     if bool then
         view
     else
-        empty
+        none
 
 
 log : String -> a -> Cmd msg
 log tag a =
-    let
-        _ =
-            Debug.log tag a
-    in
-    Cmd.none
+    Debug.log tag a |> always Cmd.none
