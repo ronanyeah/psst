@@ -9,10 +9,7 @@ import Element.Font as Font
 font : Attribute msg
 font =
     Font.family
-        [ Font.external
-            { name = "VT323"
-            , url = "https://fonts.googleapis.com/css?family=VT323"
-            }
+        [ Font.typeface "VT323"
         , Font.sansSerif
         ]
 
