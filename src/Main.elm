@@ -63,7 +63,7 @@ init maybeFlags =
             case maybeChatId of
                 Just chatId ->
                     ( { model
-                        | status = BJoining (ConnId chatId)
+                        | status = BWaitingForAKey (ConnId chatId)
                       }
                     , Cmd.batch
                         [ Task.perform Resize Window.size

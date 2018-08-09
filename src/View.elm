@@ -109,9 +109,6 @@ view { status, origin, time, arrow, shareEnabled, copyEnabled } =
                             }
                     ]
 
-            BJoining _ ->
-                spinner
-
             BWaitingForAKey _ ->
                 spinner
 

@@ -83,7 +83,6 @@ type alias CryptoKey =
 type Status
     = Start
     | AWaitingForBKey ConnId
-    | BJoining ConnId
     | BWaitingForAKey ConnId
     | InChat ChatArgs
     | ErrorView String

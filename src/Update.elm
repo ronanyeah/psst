@@ -203,7 +203,7 @@ update msg model =
                                     , Cmd.none
                                     )
 
-                                BJoining aId ->
+                                BWaitingForAKey aId ->
                                     ( { model
                                         | status =
                                             BWaitingForAKey aId
