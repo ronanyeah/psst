@@ -1,7 +1,6 @@
 module Types exposing (..)
 
 import Dom
-import Http
 import Json.Encode exposing (Value)
 import Time exposing (Time)
 import Window
@@ -24,12 +23,10 @@ type Msg
     | CbWebsocketMessage String
     | InputChange String
     | Send
-    | CbCreateChat (Result Http.Error ChatCreate)
-    | CbJoinChat (Result Http.Error ChatJoin)
     | CbEncrypt String
     | CbDecrypt String
     | ExitChat
-    | PublicKeyLoaded
+    | PublicKeyLoaded Value
     | Resize Window.Size
     | Tick Time
     | CbScrollToBottom (Result Dom.Error ())
@@ -42,7 +39,6 @@ type alias Model =
     { status : Status
     , origin : String
     , wsUrl : String
-    , restUrl : String
     , device : Device
     , time : Time
     , arrow : Bool
@@ -57,7 +53,6 @@ type alias Flags =
     { maybeChatId : Maybe String
     , origin : String
     , wsUrl : String
-    , restUrl : String
     , shareEnabled : Bool
     , copyEnabled : Bool
     , publicKey : CryptoKey
@@ -75,10 +70,6 @@ type ConnId
     = ConnId String
 
 
-type ChatId
-    = ChatId String
-
-
 type alias CryptoKey =
     { alg : String
     , e : String
@@ -89,22 +80,10 @@ type alias CryptoKey =
     }
 
 
-type alias ChatCreate =
-    { connId : ConnId
-    , chatId : ChatId
-    }
-
-
-type alias ChatJoin =
-    { aId : ConnId
-    , chatId : ChatId
-    }
-
-
 type Status
     = Start
-    | AWaitingForBKey ConnId ChatId
-    | BJoining
+    | AWaitingForBKey ConnId
+    | BJoining ConnId
     | BWaitingForAKey ConnId
     | InChat ChatArgs
     | ErrorView String
@@ -117,15 +96,18 @@ type alias ChatArgs =
     , lastTypedPing : Time
     , isLive : Bool
     , input : String
+    , partnerPublicKey : Value
     }
 
 
 type SocketMessage
     = ReceiveMessage String
     | Key CryptoKey
+    | KeyAndConn CryptoKey ConnId
     | ChatUnavailable
     | Typing
     | ConnectionDead
+    | ChatCreated ConnId
 
 
 type ScrollStatus

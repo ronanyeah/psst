@@ -62,3 +62,6 @@ typings/
 elm-stuff
 bundle.js
 public
+.psc-package
+.psci_modules
+output

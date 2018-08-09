@@ -1,6 +1,7 @@
 module Utils exposing (..)
 
 import Element exposing (Element, none)
+import Ports
 
 
 when : Bool -> Element msg -> Element msg
@@ -13,4 +14,4 @@ when bool view =
 
 log : String -> a -> Cmd msg
 log tag a =
-    Debug.log tag a |> always Cmd.none
+    Ports.log ( tag, toString a )

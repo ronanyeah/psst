@@ -1,7 +1,7 @@
 module View exposing (view)
 
 import Color
-import Element exposing (Attribute, Element, alignBottom, alignLeft, centerX, centerY, column, el, fill, height, html, htmlAttribute, inFront, layout, moveUp, none, padding, paragraph, px, scrollbars, shrink, spacing, text, width)
+import Element exposing (Attribute, Element, alignBottom, alignLeft, centerX, centerY, column, el, fill, height, htmlAttribute, inFront, layout, moveUp, none, padding, paragraph, px, scrollbars, shrink, spacing, text, width)
 import Element.Background as Bg
 import Element.Border as Border
 import Element.Events exposing (onClick)
@@ -14,7 +14,7 @@ import Json.Decode
 import Json.Encode
 import Style
 import Time exposing (Time)
-import Types exposing (ChatId(..), Message(..), Model, Msg(..), Status(..))
+import Types exposing (ConnId(..), Message(..), Model, Msg(..), Status(..))
 import Utils exposing (when)
 
 
@@ -37,8 +37,7 @@ spinner =
         , rotate
         ]
     <|
-        text <|
-            "↻"
+        text "↻"
 
 
 view : Model -> Html Msg
@@ -61,10 +60,10 @@ view { status, origin, time, arrow, shareEnabled, copyEnabled } =
                         text
                             "Start"
 
-            AWaitingForBKey _ (ChatId chatId) ->
+            AWaitingForBKey (ConnId connId) ->
                 let
                     chatlink =
-                        origin ++ "#" ++ chatId
+                        origin ++ "#" ++ connId
                 in
                 column
                     [ spacing 20, height shrink, centerY ]
@@ -110,7 +109,7 @@ view { status, origin, time, arrow, shareEnabled, copyEnabled } =
                             }
                     ]
 
-            BJoining ->
+            BJoining _ ->
                 spinner
 
             BWaitingForAKey _ ->
@@ -185,10 +184,11 @@ inputBox input isLive =
                                 if isLive then
                                     text "send"
                                 else
-                                    el [] <|
-                                        html <|
-                                            Html.span [ Html.Attributes.attribute "class" "fas fa-ban" ]
-                                                []
+                                    el
+                                        [ Font.size 30
+                                        ]
+                                    <|
+                                        text "🚫"
                         }
             , placeholder = Nothing
             }
@@ -197,10 +197,14 @@ inputBox input isLive =
 viewTyping : Time -> Time -> Element msg
 viewTyping currentTime lastSeenTyping =
     when ((currentTime - lastSeenTyping) < 5000) <|
-        el [ id "typing" ] <|
-            html <|
-                Html.span [ Html.Attributes.attribute "class" "fas fa-ellipsis-h" ]
-                    []
+        el
+            [ id "typing"
+            , Font.size 30
+            , centerX
+            , Font.color Color.red
+            ]
+        <|
+            text "TYPING!"
 
 
 msgCard : Int -> Message -> Element msg
@@ -214,15 +218,19 @@ msgCard i message =
     case message of
         Self content ->
             paragraph (Style.msgSelf ++ attrs) [ text content ]
+                |> el [ centerX ]
 
         Them content ->
             paragraph (Style.msgThem ++ attrs) [ text content ]
+                |> el [ centerX ]
 
         ChatStart ->
             paragraph (Style.msgSys ++ attrs) [ text "Ready to chat!" ]
+                |> el [ centerX ]
 
         ConnEnd ->
             paragraph (Style.msgSys ++ attrs) [ text "Connection lost!" ]
+                |> el [ centerX ]
 
 
 onScroll : (Json.Encode.Value -> msg) -> Attribute msg

@@ -1,8 +1,7 @@
 module Update exposing (update)
 
 import Dom.Scroll exposing (toBottom)
-import Http
-import Json exposing (decodeChatCreate, decodeScrollEvent, decodeSocketText, encodeChatId, encodeDataTransmit, encodePublicKey)
+import Json exposing (decodeScrollEvent, decodeSocketText, encodeDataTransmit, encodePublicKey)
 import Json.Decode
 import Json.Encode
 import Navigation
@@ -16,43 +15,16 @@ import WebSocket
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        CbCreateChat res ->
-            case res of
-                Ok { chatId, connId } ->
-                    ( { model | status = AWaitingForBKey connId chatId }
-                    , [ ( "A_JOIN", encodeChatId chatId ) ]
-                        |> Json.Encode.object
-                        |> Json.Encode.encode 0
-                        |> WebSocket.send model.wsUrl
-                    )
-
-                Err err ->
-                    ( model, log "chat create" err )
-
-        CbJoinChat res ->
-            case res of
-                Ok { aId, chatId } ->
-                    ( { model | status = BWaitingForAKey aId }
-                    , Cmd.batch
-                        [ [ ( "B_JOIN", encodeChatId chatId ) ]
-                            |> Json.Encode.object
-                            |> Json.Encode.encode 0
-                            |> WebSocket.send model.wsUrl
-                        , [ ( "key", encodePublicKey model.myPublicKey ) ]
-                            |> Json.Encode.object
-                            |> encodeDataTransmit aId
-                            |> WebSocket.send model.wsUrl
-                        ]
-                    )
-
-                Err err ->
-                    ( model, log "chat join" err )
-
         CbScrollToBottom _ ->
             ( { model | arrow = False }, Cmd.none )
 
         CreateChat ->
-            ( model, createChat model.restUrl )
+            ( model
+            , [ ( "create", Json.Encode.bool True ) ]
+                |> Json.Encode.object
+                |> Json.Encode.encode 0
+                |> WebSocket.send model.wsUrl
+            )
 
         InputChange str ->
             case model.status of
@@ -99,7 +71,13 @@ update msg model =
                                         , lastTypedPing = 0
                                     }
                           }
-                        , Cmd.batch [ Ports.encrypt input, scrollToBottom ]
+                        , Cmd.batch
+                            [ Ports.encrypt
+                                { plaintext = input
+                                , publicKey = args.partnerPublicKey
+                                }
+                            , scrollToBottom
+                            ]
                         )
 
                 _ ->
@@ -158,7 +136,7 @@ update msg model =
         ExitChat ->
             ( { model | status = Start }, Cmd.none )
 
-        PublicKeyLoaded ->
+        PublicKeyLoaded publicKey ->
             let
                 startChat connId =
                     ( { model
@@ -170,13 +148,14 @@ update msg model =
                                 , lastTypedPing = 0
                                 , isLive = True
                                 , input = ""
+                                , partnerPublicKey = publicKey
                                 }
                       }
                     , Navigation.modifyUrl "/"
                     )
             in
             case model.status of
-                AWaitingForBKey connId _ ->
+                AWaitingForBKey connId ->
                     startChat connId
 
                 BWaitingForAKey connId ->
@@ -214,6 +193,32 @@ update msg model =
             case Json.Decode.decodeString decodeSocketText str of
                 Ok socketMsg ->
                     case socketMsg of
+                        ChatCreated (ConnId assignedId) ->
+                            case model.status of
+                                Start ->
+                                    ( { model
+                                        | status =
+                                            AWaitingForBKey (ConnId assignedId)
+                                      }
+                                    , Cmd.none
+                                    )
+
+                                BJoining aId ->
+                                    ( { model
+                                        | status =
+                                            BWaitingForAKey aId
+                                      }
+                                    , [ ( "key", encodePublicKey model.myPublicKey )
+                                      , ( "pairId", Json.Encode.string assignedId )
+                                      ]
+                                        |> Json.Encode.object
+                                        |> encodeDataTransmit aId
+                                        |> WebSocket.send model.wsUrl
+                                    )
+
+                                _ ->
+                                    ( model, log "ChatCreated, oops" model.status )
+
                         ReceiveMessage txt ->
                             ( model, Ports.decrypt txt )
 
@@ -266,22 +271,6 @@ update msg model =
 
                         Key theirPublicKey ->
                             case model.status of
-                                AWaitingForBKey connId _ ->
-                                    let
-                                        keyTransfer =
-                                            [ ( "key", encodePublicKey model.myPublicKey )
-                                            ]
-                                                |> Json.Encode.object
-                                                |> encodeDataTransmit connId
-                                                |> WebSocket.send model.wsUrl
-                                    in
-                                    ( model
-                                    , Cmd.batch
-                                        [ keyTransfer
-                                        , Ports.loadPublicKey <| encodePublicKey theirPublicKey
-                                        ]
-                                    )
-
                                 BWaitingForAKey _ ->
                                     ( model
                                     , Ports.loadPublicKey <| encodePublicKey theirPublicKey
@@ -290,14 +279,31 @@ update msg model =
                                 a ->
                                     ( model, log "key swap, oops" a )
 
+                        KeyAndConn theirPublicKey theirId ->
+                            case model.status of
+                                AWaitingForBKey _ ->
+                                    let
+                                        keyTransfer =
+                                            [ ( "key", encodePublicKey model.myPublicKey )
+                                            ]
+                                                |> Json.Encode.object
+                                                |> encodeDataTransmit theirId
+                                                |> WebSocket.send model.wsUrl
+                                    in
+                                    ( { model
+                                        | status = AWaitingForBKey theirId
+                                      }
+                                    , Cmd.batch
+                                        [ keyTransfer
+                                        , Ports.loadPublicKey <| encodePublicKey theirPublicKey
+                                        ]
+                                    )
+
+                                a ->
+                                    ( model, log "key swap, oops" a )
+
                 Err err ->
                     ( model, log "socket message error" err )
-
-
-createChat : String -> Cmd Msg
-createChat restUrl =
-    Http.get (restUrl ++ "/chat") decodeChatCreate
-        |> Http.send CbCreateChat
 
 
 isBottom : Json.Decode.Value -> ( Int, Bool )

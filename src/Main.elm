@@ -1,22 +1,18 @@
 module Main exposing (main)
 
 import Html
-import Http
-import Json exposing (decodeChatJoin, decodeFlags)
-import Json.Decode exposing (decodeValue)
-import Json.Encode exposing (Value)
+import Json.Encode
 import Ports
 import Task
 import Time
-import Types exposing (Device(..), Model, Msg(..), ScrollStatus(Static), Status(..))
+import Types exposing (ConnId(..), Device(..), Flags, Model, Msg(..), ScrollStatus(Static), Status(..))
 import Update exposing (update)
-import Utils exposing (log)
 import View exposing (view)
 import WebSocket
 import Window
 
 
-main : Program Value Model Msg
+main : Program (Maybe Flags) Model Msg
 main =
     Html.programWithFlags
         { init = init
@@ -31,13 +27,18 @@ main =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions { wsUrl } =
+subscriptions { wsUrl, status } =
     Sub.batch
         [ WebSocket.listen wsUrl CbWebsocketMessage
         , Ports.cbEncrypt CbEncrypt
         , Ports.cbDecrypt CbDecrypt
-        , Ports.cbLoadPublicKey (\_ -> PublicKeyLoaded)
-        , Time.every (100 * Time.millisecond) Tick
+        , Ports.cbLoadPublicKey PublicKeyLoaded
+        , case status of
+            InChat _ ->
+                Time.every (100 * Time.millisecond) Tick
+
+            _ ->
+                Sub.none
         ]
 
 
@@ -45,54 +46,46 @@ subscriptions { wsUrl } =
 -- INIT
 
 
-init : Value -> ( Model, Cmd Msg )
-init value =
-    case decodeValue decodeFlags value of
-        Ok maybeFlags ->
-            case maybeFlags of
-                Just { maybeChatId, origin, wsUrl, shareEnabled, copyEnabled, restUrl, publicKey } ->
-                    let
-                        model =
-                            { emptyModel
-                                | shareEnabled = shareEnabled
-                                , copyEnabled = copyEnabled
-                                , wsUrl = wsUrl
-                                , restUrl = restUrl
-                                , origin = origin
-                                , myPublicKey = publicKey
-                            }
-                    in
-                    case maybeChatId of
-                        Just chatId ->
-                            ( { model
-                                | status = BJoining
-                              }
-                            , Cmd.batch
-                                [ Http.get (restUrl ++ "/chat/" ++ chatId) decodeChatJoin
-                                    |> Http.send CbJoinChat
-                                , Task.perform Resize Window.size
-                                ]
-                            )
-
-                        Nothing ->
-                            ( { model
-                                | status = Start
-                              }
-                            , Task.perform Resize Window.size
-                            )
-
-                Nothing ->
-                    ( { emptyModel
-                        | status = ErrorView "Your browser is not equipped for this sweet PWA"
+init : Maybe Flags -> ( Model, Cmd Msg )
+init maybeFlags =
+    case maybeFlags of
+        Just { maybeChatId, origin, wsUrl, shareEnabled, copyEnabled, publicKey } ->
+            let
+                model =
+                    { emptyModel
+                        | shareEnabled = shareEnabled
+                        , copyEnabled = copyEnabled
+                        , wsUrl = wsUrl
+                        , origin = origin
+                        , myPublicKey = publicKey
+                    }
+            in
+            case maybeChatId of
+                Just chatId ->
+                    ( { model
+                        | status = BJoining (ConnId chatId)
                       }
-                    , Cmd.none
+                    , Cmd.batch
+                        [ Task.perform Resize Window.size
+                        , [ ( "chatId", Json.Encode.string chatId ) ]
+                            |> Json.Encode.object
+                            |> Json.Encode.encode 0
+                            |> WebSocket.send model.wsUrl
+                        ]
                     )
 
-        Err err ->
+                Nothing ->
+                    ( { model
+                        | status = Start
+                      }
+                    , Task.perform Resize Window.size
+                    )
+
+        Nothing ->
             ( { emptyModel
-                | status = ErrorView <| "Something horrible has occurred"
+                | status = ErrorView "Your browser is not equipped for this sweet PWA"
               }
-            , log "!" err
+            , Cmd.none
             )
 
 
@@ -101,7 +94,6 @@ emptyModel =
     { status = ErrorView ""
     , origin = ""
     , wsUrl = ""
-    , restUrl = ""
     , device = Desktop
     , time = 0
     , arrow = False

@@ -38,7 +38,6 @@ const cryptoEnabled =
   const flags = {
     origin: window.location.origin,
     wsUrl: WS_URL,
-    restUrl: REST_URL,
     maybeChatId: window.location.hash
       ? window.location.hash.substring(1)
       : null,
@@ -48,6 +47,8 @@ const cryptoEnabled =
   };
 
   const app = Elm.Main.embed(document.body, flags);
+
+  app.ports.log.subscribe(([tag, a]) => console.log(tag, a));
 
   app.ports.share.subscribe(url =>
     window.navigator.share({
@@ -69,7 +70,7 @@ const cryptoEnabled =
   );
 
   app.ports.loadPublicKey.subscribe(async jwk => {
-    const partnerPublicKey = await crypto.importKey(
+    const publicKey = await crypto.importKey(
       "jwk",
       jwk,
       { name: "RSA-OAEP", hash: "SHA-256" },
@@ -77,17 +78,17 @@ const cryptoEnabled =
       ["encrypt"]
     );
 
-    app.ports.encrypt.subscribe(plaintext =>
-      crypto
-        .encrypt(
-          { name: "RSA-OAEP" },
-          partnerPublicKey,
-          stringToArrayBuffer(encodeURI(plaintext))
-        )
-        .then(arrayBufferToString)
-        .then(app.ports.cbEncrypt.send)
-    );
-
-    app.ports.cbLoadPublicKey.send(null);
+    app.ports.cbLoadPublicKey.send(publicKey);
   });
+
+  app.ports.encrypt.subscribe(({ publicKey, plaintext }) =>
+    crypto
+      .encrypt(
+        { name: "RSA-OAEP" },
+        publicKey,
+        stringToArrayBuffer(encodeURI(plaintext))
+      )
+      .then(arrayBufferToString)
+      .then(app.ports.cbEncrypt.send)
+  );
 })().catch(console.error);

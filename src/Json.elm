@@ -1,26 +1,8 @@
 module Json exposing (..)
 
-import Json.Decode as Decode exposing (Decoder, andThen, bool, fail, field, list, map, map2, map6, nullable, string, succeed)
+import Json.Decode as Decode exposing (Decoder, andThen, bool, fail, field, list, map, map2, map6, string, succeed)
 import Json.Encode as Encode
-import Types exposing (ChatCreate, ChatId(..), ChatJoin, ConnId(..), CryptoKey, Flags, ScrollData, SocketMessage(..))
-
-
-encodeChatId : ChatId -> Encode.Value
-encodeChatId (ChatId chatId) =
-    Encode.string chatId
-
-
-decodeFlags : Decoder (Maybe Flags)
-decodeFlags =
-    Decode.map7 Flags
-        (field "maybeChatId" (nullable string))
-        (field "origin" string)
-        (field "wsUrl" string)
-        (field "restUrl" string)
-        (field "shareEnabled" bool)
-        (field "copyEnabled" bool)
-        (field "publicKey" decodePublicKey)
-        |> Decode.nullable
+import Types exposing (ConnId(..), CryptoKey, ScrollData, SocketMessage(..))
 
 
 decodeScrollEvent : Decoder ScrollData
@@ -46,7 +28,7 @@ encodePublicKey { alg, e, ext, key_ops, kty, n } =
 encodeDataTransmit : ConnId -> Encode.Value -> String
 encodeDataTransmit (ConnId id) payload =
     [ ( "conn", Encode.string id )
-    , ( "data", payload |> Encode.encode 0 |> Encode.string )
+    , ( "contents", payload |> Encode.encode 0 |> Encode.string )
     ]
         |> Encode.object
         |> Encode.encode 0
@@ -67,23 +49,18 @@ decodeSocketText : Decoder SocketMessage
 decodeSocketText =
     Decode.oneOf
         [ decodeEnum
+        , decodeKeyAndConn
         , decodeKey
         , decodeMessage
+        , decodeChatCreated
         ]
 
 
-decodeChatCreate : Decoder ChatCreate
-decodeChatCreate =
-    map2 ChatCreate
-        (field "bId" (map ConnId string))
-        (field "chatId" (map ChatId string))
-
-
-decodeChatJoin : Decoder ChatJoin
-decodeChatJoin =
-    map2 ChatJoin
-        (field "aId" (map ConnId string))
-        (field "chatId" (map ChatId string))
+decodeChatCreated : Decoder SocketMessage
+decodeChatCreated =
+    map ConnId string
+        |> field "chatId"
+        |> map ChatCreated
 
 
 decodeMessage : Decoder SocketMessage
@@ -96,6 +73,13 @@ decodeKey : Decoder SocketMessage
 decodeKey =
     map Key
         (field "key" decodePublicKey)
+
+
+decodeKeyAndConn : Decoder SocketMessage
+decodeKeyAndConn =
+    map2 KeyAndConn
+        (field "key" decodePublicKey)
+        (field "pairId" (map ConnId string))
 
 
 decodeEnum : Decoder SocketMessage
