@@ -65,3 +65,7 @@ public
 .psc-package
 .psci_modules
 output
+
+.stack-work/
+psst.cabal
+*~
