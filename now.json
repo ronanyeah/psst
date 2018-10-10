@@ -1,0 +1,8 @@
+{
+  "public": true,
+  "type": "docker",
+  "alias": "psst",
+  "features": {
+    "cloud": "v2"
+  }
+}

@@ -1,0 +1,7 @@
+resolver: lts-10.7
+packages:
+- .
+extra-deps:
+- random-string-0.1.0.1
+- base58-bytestring-0.1.0
+- entropy-0.4.1.3
