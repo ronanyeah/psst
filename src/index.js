@@ -1,8 +1,6 @@
-import "babel-polyfill";
-
-import Clipboard from "clipboard";
-import Elm from "./Main.elm";
-import { arrayBufferToString, stringToArrayBuffer } from "./helpers.js";
+const Clipboard = require("clipboard");
+const { Elm } = require("./Main.elm");
+const { arrayBufferToString, stringToArrayBuffer } = require("./helpers.js");
 
 const crypto =
   window.crypto.subtle || window.crypto.webkitSubtle || window.crypto.msSubtle;
@@ -37,7 +35,6 @@ const cryptoEnabled =
 
   const flags = {
     origin: window.location.origin,
-    wsUrl: WS_URL,
     maybeChatId: window.location.hash
       ? window.location.hash.substring(1)
       : null,
@@ -46,16 +43,29 @@ const cryptoEnabled =
     publicKey: jwk
   };
 
-  const app = Elm.Main.embed(document.body, flags);
+  // Clear the hash
+  window.history.replaceState({}, document.title, "/");
 
-  app.ports.log.subscribe(([tag, a]) => console.log(tag, a));
+  const ws = new WebSocket(WS_URL);
+
+  ws.onclose = console.warn;
+
+  ws.onerror = console.error;
+
+  await new Promise(resolve => (ws.onopen = resolve));
+
+  const app = Elm.Main.init({ flags });
+
+  ws.onmessage = e => app.ports.wsReceive.send(e.data);
 
   app.ports.share.subscribe(url =>
     window.navigator.share({
       title: "Psst",
-      url: url
+      url
     })
   );
+
+  app.ports.wsSend.subscribe(txt => ws.send(txt));
 
   app.ports.decrypt.subscribe(encryptedText =>
     crypto
@@ -91,4 +101,6 @@ const cryptoEnabled =
       .then(arrayBufferToString)
       .then(app.ports.cbEncrypt.send)
   );
+
+  app.ports.log.subscribe(console.log);
 })().catch(console.error);

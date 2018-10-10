@@ -4,9 +4,7 @@
     "start": "node server.js",
     "test": "node test/index.js",
     "client:build": "webpack",
-    "client:watch": "webpack-dev-server --hot",
-    "server:watch": "pulp --watch run",
-    "format": "purty --write src/Main.purs"
+    "client:watch": "webpack-dev-server --hot"
   },
   "author": "ronanyeah",
   "license": "GPL-3.0",
@@ -15,26 +13,54 @@
     "url": "git+https://github.com/ronanyeah/psst.git"
   },
   "dependencies": {
-    "@babel/core": "^7.0.0-beta.56",
-    "@babel/preset-env": "^7.0.0-beta.56",
-    "babel-loader": "^8.0.0-beta.4",
-    "babel-polyfill": "^6.26.0",
     "clipboard": "^2.0.1",
     "copy-webpack-plugin": "^4.5.2",
-    "elm-webpack-loader": "^4.5.0",
-    "webpack": "^4.16.5",
-    "webpack-cli": "^3.1.0",
-    "ws": "^6.0.0"
+    "elm-webpack-loader": "^5.0.0",
+    "webpack": "^4.20.2",
+    "webpack-cli": "^3.1.2"
   },
   "devDependencies": {
-    "elm-hot-loader": "^0.5.4",
-    "pulp": "^12.3.0",
-    "puppeteer": "^1.6.2",
-    "purescript": "^0.12.0",
-    "purty": "^3.0.3",
-    "webpack-dev-server": "^3.1.5"
+    "elm-hot-webpack-loader": "^1.0.2",
+    "eslint": "^5.6.1",
+    "eslint-plugin-fp": "^2.3.0",
+    "webpack-dev-server": "^3.1.9"
   },
   "now": {
     "alias": "psst"
+  },
+  "eslintConfig": {
+    "rules": {
+      "no-unused-vars": [
+        "error",
+        {
+          "argsIgnorePattern": "^_"
+        }
+      ],
+      "fp/no-mutation": [
+        "error",
+        {
+          "commonjs": true
+        }
+      ],
+      "no-console": 0,
+      "fp/no-unused-expression": 0,
+      "fp/no-throw": 0,
+      "fp/no-nil": 0
+    },
+    "env": {
+      "node": true,
+      "browser": true,
+      "es6": true
+    },
+    "plugins": [
+      "fp"
+    ],
+    "extends": [
+      "plugin:fp/recommended",
+      "eslint:recommended"
+    ],
+    "parserOptions": {
+      "ecmaVersion": 9
+    }
   }
 }

@@ -1,6 +1,6 @@
 module View exposing (view)
 
-import Color
+import Browser exposing (Document)
 import Element exposing (Attribute, Element, alignBottom, alignLeft, centerX, centerY, column, el, fill, height, htmlAttribute, inFront, layout, moveUp, none, padding, paragraph, px, scrollbars, shrink, spacing, text, width)
 import Element.Background as Bg
 import Element.Border as Border
@@ -13,9 +13,8 @@ import Html.Events exposing (keyCode, on)
 import Json.Decode
 import Json.Encode
 import Style
-import Time exposing (Time)
+import Time exposing (Posix)
 import Types exposing (ConnId(..), Message(..), Model, Msg(..), Status(..))
-import Utils exposing (when)
 
 
 id : String -> Attribute msg
@@ -26,7 +25,7 @@ id =
 
 rotate : Attribute msg
 rotate =
-    Html.Attributes.style [ ( "animation", "rotation 2s infinite linear" ) ]
+    Html.Attributes.style "animation" "rotation 2s infinite linear"
         |> Element.htmlAttribute
 
 
@@ -40,100 +39,105 @@ spinner =
         text "↻"
 
 
-view : Model -> Html Msg
+view : Model -> Document Msg
 view { status, origin, time, arrow, shareEnabled, copyEnabled } =
-    layout [ Bg.color Style.grn, Style.font ] <|
-        case status of
-            Start ->
-                el
-                    [ width <| px 100
-                    , height <| px 100
-                    , Bg.color Style.org
-                    , Border.rounded 50
-                    , centerY
-                    , Element.pointer
-                    , onClick CreateChat
-                    , id "start-circle"
-                    ]
-                <|
-                    el [ centerX, centerY ] <|
-                        text
-                            "Start"
-
-            AWaitingForBKey (ConnId connId) ->
-                let
-                    chatlink =
-                        origin ++ "#" ++ connId
-                in
-                column
-                    [ spacing 20, height shrink, centerY ]
-                    [ el
-                        [ centerX, Bg.color Style.blu, Font.size 20, padding 10 ]
-                      <|
-                        text "Share this:"
-                    , el
-                        [ centerX, Bg.color Style.ylw, id "chat-link", padding 10 ]
-                      <|
-                        text chatlink
-                    , when copyEnabled <|
-                        button [ centerX ]
-                            { onPress = Nothing
-                            , label =
-                                el
-                                    [ id "copy-button"
-                                    , Html.Attributes.attribute "data-clipboard-text" chatlink
-                                        |> htmlAttribute
-                                    , Border.dashed
-                                    , Border.width 2
-                                    , Border.color Color.black
-                                    , Bg.color Style.org
-                                    , padding 10
-                                    ]
-                                <|
-                                    text "COPY"
-                            }
-                    , when shareEnabled <|
-                        button [ centerX ]
-                            { onPress = Just <| Share chatlink
-                            , label =
-                                el
-                                    [ Border.dashed
-                                    , Border.width 2
-                                    , Border.color Color.black
-                                    , Bg.color Style.org
-                                    , padding 10
-                                    ]
-                                <|
-                                    text
-                                        "SHARE"
-                            }
-                    ]
-
-            BWaitingForAKey _ ->
-                spinner
-
-            InChat { lastSeenTyping, messages, isLive, input } ->
-                column
-                    [ inFront <| inputBox input isLive ]
-                    [ column
-                        [ spacing 7
-                        , padding 7
-                        , id "messages"
-                        , scrollbars
-                        , onScroll DisplayScrollButton
+    { title = "psst"
+    , body =
+        [ layout [ Bg.color Style.grn, Style.font ] <|
+            case status of
+                Start ->
+                    el
+                        [ width <| px 100
+                        , height <| px 100
+                        , Bg.color Style.org
+                        , Border.rounded 50
+                        , centerY
+                        , Element.pointer
+                        , onClick CreateChat
+                        , id "start-circle"
+                        , centerX
                         ]
-                      <|
-                        List.indexedMap msgCard messages
-                    , viewTyping time lastSeenTyping
-                    , when arrow <|
-                        el
-                            [ onClick ScrollToBottom, alignLeft, alignBottom, moveUp 40 ]
-                            none
-                    , el [ height <| px 40 ] none
-                    ]
+                    <|
+                        el [ centerX, centerY ] <|
+                            text
+                                "Start"
 
-            ErrorView txt ->
-                el [ width fill ] <| paragraph [] [ text txt ]
+                AWaitingForBKey (ConnId connId) ->
+                    let
+                        chatlink =
+                            origin ++ "#" ++ connId
+                    in
+                    column
+                        [ spacing 20, height shrink, centerY, centerX ]
+                        [ el
+                            [ centerX, Bg.color Style.blu, Font.size 20, padding 10 ]
+                          <|
+                            text "Share this:"
+                        , el
+                            [ centerX, Bg.color Style.ylw, id "chat-link", padding 10 ]
+                          <|
+                            text chatlink
+                        , when copyEnabled <|
+                            button [ centerX ]
+                                { onPress = Nothing
+                                , label =
+                                    el
+                                        [ id "copy-button"
+                                        , Html.Attributes.attribute "data-clipboard-text" chatlink
+                                            |> htmlAttribute
+                                        , Border.dashed
+                                        , Border.width 2
+                                        , Border.color Style.black
+                                        , Bg.color Style.org
+                                        , padding 10
+                                        ]
+                                    <|
+                                        text "COPY"
+                                }
+                        , when shareEnabled <|
+                            button [ centerX ]
+                                { onPress = Just <| Share chatlink
+                                , label =
+                                    el
+                                        [ Border.dashed
+                                        , Border.width 2
+                                        , Border.color Style.black
+                                        , Bg.color Style.org
+                                        , padding 10
+                                        ]
+                                    <|
+                                        text
+                                            "SHARE"
+                                }
+                        ]
+
+                BWaitingForAKey _ ->
+                    el [ centerX, centerY ] <| spinner
+
+                InChat { lastSeenTyping, messages, isLive, input } ->
+                    column
+                        [ inFront <| inputBox input isLive ]
+                        [ column
+                            [ spacing 7
+                            , padding 7
+                            , id "messages"
+                            , scrollbars
+                            , onScroll DisplayScrollButton
+                            ]
+                          <|
+                            List.indexedMap msgCard messages
+                        , viewTyping time lastSeenTyping
+                        , when arrow <|
+                            el
+                                [ onClick ScrollToBottom, alignLeft, alignBottom, moveUp 40 ]
+                                none
+                        , el [ height <| px 40 ] none
+                        ]
+
+                ErrorView txt ->
+                    el [ width fill ] <| paragraph [] [ text txt ]
+        ]
+    }
 
 
 inputBox : String -> Bool -> Element Msg
@@ -145,15 +149,13 @@ inputBox input isLive =
             [ onPressEnter Send
             , id "message-input"
             , Border.dashed
-            , Border.color Color.black
+            , Border.color Style.black
             , Border.width 2
             , padding 10
+            , Html.Attributes.disabled (not isLive)
+                |> htmlAttribute
             ]
-            { onChange =
-                if isLive then
-                    Just InputChange
-                else
-                    Nothing
+            { onChange = InputChange
             , text = input
             , label =
                 Input.labelRight [] <|
@@ -161,6 +163,7 @@ inputBox input isLive =
                         { onPress =
                             if isLive then
                                 Just Send
+
                             else
                                 Nothing
                         , label =
@@ -169,10 +172,11 @@ inputBox input isLive =
                                 , id <|
                                     if isLive then
                                         "send-message"
+
                                     else
                                         "conn-lost"
                                 , Border.dashed
-                                , Border.color Color.black
+                                , Border.color Style.black
                                 , Border.width 2
                                 , Bg.color Style.org
                                 , Font.size 30
@@ -180,6 +184,7 @@ inputBox input isLive =
                             <|
                                 if isLive then
                                     text "send"
+
                                 else
                                     el
                                         [ Font.size 30
@@ -191,17 +196,17 @@ inputBox input isLive =
             }
 
 
-viewTyping : Time -> Time -> Element msg
+viewTyping : Posix -> Posix -> Element msg
 viewTyping currentTime lastSeenTyping =
-    when ((currentTime - lastSeenTyping) < 5000) <|
-        el
-            [ id "typing"
-            , Font.size 30
-            , centerX
-            , Font.color Color.red
-            ]
-        <|
-            text "TYPING!"
+    --when ((currentTime - lastSeenTyping) < 5000) <|
+    --el
+    --[ id "typing"
+    --, Font.size 30
+    --, centerX
+    --, Font.color Color.red
+    --]
+    --<|
+    text "TYPING!"
 
 
 msgCard : Int -> Message -> Element msg
@@ -209,7 +214,7 @@ msgCard i message =
     let
         attrs =
             [ padding 4
-            , id <| "message-" ++ toString i
+            , id <| "message-" ++ String.fromInt i
             ]
     in
     case message of
@@ -244,8 +249,18 @@ onPressEnter msg =
             (\int ->
                 if int == 13 then
                     Json.Decode.succeed msg
+
                 else
                     Json.Decode.fail "not enter"
             )
         |> on "keyup"
         |> htmlAttribute
+
+
+when : Bool -> Element msg -> Element msg
+when bool v =
+    if bool then
+        v
+
+    else
+        none

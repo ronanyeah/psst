@@ -1,7 +1,6 @@
-module Style exposing (..)
+module Style exposing (black, blu, font, grn, msgSelf, msgSys, msgThem, org, pnk, prp, red, ylw)
 
-import Color exposing (Color, rgb)
-import Element exposing (Attribute)
+import Element exposing (Attribute, Color, rgb255)
 import Element.Background as Bg
 import Element.Font as Font
 
@@ -14,39 +13,44 @@ font =
         ]
 
 
+black : Color
+black =
+    rgb255 0 0 0
+
+
 grn : Color
 grn =
-    rgb 129 255 42
+    rgb255 129 255 42
 
 
 org : Color
 org =
-    rgb 255 169 15
+    rgb255 255 169 15
 
 
 prp : Color
 prp =
-    rgb 191 0 253
+    rgb255 191 0 253
 
 
 blu : Color
 blu =
-    rgb 0 165 254
+    rgb255 0 165 254
 
 
 pnk : Color
 pnk =
-    rgb 255 0 166
+    rgb255 255 0 166
 
 
 ylw : Color
 ylw =
-    rgb 251 255 37
+    rgb255 251 255 37
 
 
 red : Color
 red =
-    rgb 255 0 0
+    rgb255 255 0 0
 
 
 msgThem : List (Attribute msg)

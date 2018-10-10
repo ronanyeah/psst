@@ -1,9 +1,15 @@
-port module Ports exposing (..)
+port module Ports exposing (cbDecrypt, cbEncrypt, cbLoadPublicKey, decrypt, encrypt, loadPublicKey, log, share, wsReceive, wsSend)
 
 import Json.Encode exposing (Value)
 
 
-port log : ( String, String ) -> Cmd msg
+port log : String -> Cmd msg
+
+
+port wsSend : String -> Cmd msg
+
+
+port wsReceive : (String -> msg) -> Sub msg
 
 
 port share : String -> Cmd msg

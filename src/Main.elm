@@ -1,20 +1,20 @@
 module Main exposing (main)
 
+import Browser
+import Browser.Navigation exposing (Key)
 import Html
 import Json.Encode
 import Ports
 import Task
 import Time
-import Types exposing (ConnId(..), Device(..), Flags, Model, Msg(..), ScrollStatus(Static), Status(..))
+import Types exposing (ConnId(..), Device(..), Flags, Model, Msg(..), ScrollStatus(..), Status(..))
 import Update exposing (update)
 import View exposing (view)
-import WebSocket
-import Window
 
 
 main : Program (Maybe Flags) Model Msg
 main =
-    Html.programWithFlags
+    Browser.document
         { init = init
         , subscriptions = subscriptions
         , update = update
@@ -27,18 +27,18 @@ main =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions { wsUrl, status } =
+subscriptions model =
     Sub.batch
-        [ WebSocket.listen wsUrl CbWebsocketMessage
-        , Ports.cbEncrypt CbEncrypt
+        [ Ports.cbEncrypt CbEncrypt
         , Ports.cbDecrypt CbDecrypt
         , Ports.cbLoadPublicKey PublicKeyLoaded
-        , case status of
+        , case model.status of
             InChat _ ->
-                Time.every (100 * Time.millisecond) Tick
+                Time.every 100 Tick
 
             _ ->
                 Sub.none
+        , Ports.wsReceive CbWebsocketMessage
         ]
 
 
@@ -49,13 +49,12 @@ subscriptions { wsUrl, status } =
 init : Maybe Flags -> ( Model, Cmd Msg )
 init maybeFlags =
     case maybeFlags of
-        Just { maybeChatId, origin, wsUrl, shareEnabled, copyEnabled, publicKey } ->
+        Just { maybeChatId, origin, shareEnabled, copyEnabled, publicKey } ->
             let
                 model =
                     { emptyModel
                         | shareEnabled = shareEnabled
                         , copyEnabled = copyEnabled
-                        , wsUrl = wsUrl
                         , origin = origin
                         , myPublicKey = publicKey
                     }
@@ -65,20 +64,17 @@ init maybeFlags =
                     ( { model
                         | status = BWaitingForAKey (ConnId chatId)
                       }
-                    , Cmd.batch
-                        [ Task.perform Resize Window.size
-                        , [ ( "chatId", Json.Encode.string chatId ) ]
-                            |> Json.Encode.object
-                            |> Json.Encode.encode 0
-                            |> WebSocket.send model.wsUrl
-                        ]
+                    , [ ( "chatId", Json.Encode.string chatId ) ]
+                        |> Json.Encode.object
+                        |> Json.Encode.encode 0
+                        |> Ports.wsSend
                     )
 
                 Nothing ->
                     ( { model
                         | status = Start
                       }
-                    , Task.perform Resize Window.size
+                    , Cmd.none
                     )
 
         Nothing ->
@@ -93,9 +89,8 @@ emptyModel : Model
 emptyModel =
     { status = ErrorView ""
     , origin = ""
-    , wsUrl = ""
     , device = Desktop
-    , time = 0
+    , time = Time.millisToPosix 0
     , arrow = False
     , scroll = Static
     , shareEnabled = False

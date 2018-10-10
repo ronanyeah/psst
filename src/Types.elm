@@ -1,9 +1,10 @@
-module Types exposing (..)
+module Types exposing (ChatArgs, ConnId(..), CryptoKey, Device(..), Flags, Message(..), Model, Msg(..), ScrollData, ScrollStatus(..), SocketMessage(..), Status(..))
 
-import Dom
+import Browser
+import Browser.Dom
 import Json.Encode exposing (Value)
-import Time exposing (Time)
-import Window
+import Time exposing (Posix)
+import Url exposing (Url)
 
 
 type alias ScrollData =
@@ -27,9 +28,8 @@ type Msg
     | CbDecrypt String
     | ExitChat
     | PublicKeyLoaded Value
-    | Resize Window.Size
-    | Tick Time
-    | CbScrollToBottom (Result Dom.Error ())
+    | Tick Posix
+    | CbScrollToBottom (Result Browser.Dom.Error ())
     | DisplayScrollButton Value
     | ScrollToBottom
     | Share String
@@ -38,9 +38,8 @@ type Msg
 type alias Model =
     { status : Status
     , origin : String
-    , wsUrl : String
     , device : Device
-    , time : Time
+    , time : Posix
     , arrow : Bool
     , scroll : ScrollStatus
     , shareEnabled : Bool
@@ -52,7 +51,6 @@ type alias Model =
 type alias Flags =
     { maybeChatId : Maybe String
     , origin : String
-    , wsUrl : String
     , shareEnabled : Bool
     , copyEnabled : Bool
     , publicKey : CryptoKey
@@ -90,9 +88,9 @@ type Status
 
 type alias ChatArgs =
     { connId : ConnId
-    , lastSeenTyping : Time
+    , lastSeenTyping : Posix
     , messages : List Message
-    , lastTypedPing : Time
+    , lastTypedPing : Posix
     , isLive : Bool
     , input : String
     , partnerPublicKey : Value
@@ -107,8 +105,9 @@ type SocketMessage
     | Typing
     | ConnectionDead
     | ChatCreated ConnId
+    | ChatMatched { aId : ConnId, bId : ConnId }
 
 
 type ScrollStatus
     = Static
-    | Moving Time Int
+    | Moving Posix Int

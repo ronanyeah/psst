@@ -1,4 +1,4 @@
-module Json exposing (..)
+module Json exposing (decodeChatCreated, decodeEnum, decodeKey, decodeKeyAndConn, decodeMessage, decodePublicKey, decodeScrollEvent, decodeSocketText, encodeDataTransmit, encodePublicKey)
 
 import Json.Decode as Decode exposing (Decoder, andThen, bool, fail, field, list, map, map2, map6, string, succeed)
 import Json.Encode as Encode
@@ -19,7 +19,7 @@ encodePublicKey { alg, e, ext, key_ops, kty, n } =
         [ ( "alg", Encode.string alg )
         , ( "e", Encode.string e )
         , ( "ext", Encode.bool ext )
-        , ( "key_ops", Encode.list <| List.map Encode.string key_ops )
+        , ( "key_ops", Encode.list Encode.string key_ops )
         , ( "kty", Encode.string kty )
         , ( "n", Encode.string n )
         ]
@@ -53,6 +53,7 @@ decodeSocketText =
         , decodeKey
         , decodeMessage
         , decodeChatCreated
+        , decodeChatMatched
         ]
 
 
@@ -61,6 +62,13 @@ decodeChatCreated =
     map ConnId string
         |> field "chatId"
         |> map ChatCreated
+
+
+decodeChatMatched : Decoder SocketMessage
+decodeChatMatched =
+    map2 (\aId bId -> ChatMatched { aId = aId, bId = bId })
+        (field "aId" (map ConnId string))
+        (field "bId" (map ConnId string))
 
 
 decodeMessage : Decoder SocketMessage
