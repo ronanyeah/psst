@@ -58,7 +58,6 @@ application :: MVar ServerState -> WS.ServerApp
 application state pending = do
   conn <- WS.acceptRequest pending
   WS.forkPingThread conn 30
-  -- | otherwise -> flip finally disconnect $ do
   forever $ do
     msg <- WS.receiveData conn
     let res = decodeStrict $ encodeUtf8 msg :: Maybe Msg
