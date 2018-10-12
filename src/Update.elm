@@ -31,8 +31,7 @@ update msg model =
                 InChat ({ connId, lastTypedPing } as args) ->
                     let
                         shouldPing =
-                            --(model.time - lastTypedPing) > 4000
-                            False
+                            (Time.posixToMillis model.time - Time.posixToMillis lastTypedPing) > 4000
                     in
                     ( { model
                         | status =
@@ -40,18 +39,20 @@ update msg model =
                                 { args
                                     | input = str
                                     , lastTypedPing =
-                                        --if shouldPing then
-                                        --model.time
-                                        --else
-                                        lastTypedPing
+                                        if shouldPing then
+                                            model.time
+
+                                        else
+                                            lastTypedPing
                                 }
                       }
-                      --, if shouldPing then
-                      --Json.Encode.string "TYPING"
-                      --|> encodeDataTransmit connId
-                      --|> WebSocket.send model.wsUrl
-                      --else
-                    , Cmd.none
+                    , if shouldPing then
+                        Json.Encode.string "TYPING"
+                            |> encodeDataTransmit connId
+                            |> Ports.wsSend
+
+                      else
+                        Cmd.none
                     )
 
                 _ ->
@@ -70,8 +71,7 @@ update msg model =
                                     { args
                                         | input = ""
                                         , messages = messages ++ [ Self input ]
-
-                                        --, lastTypedPing = 0
+                                        , lastTypedPing = Time.millisToPosix 0
                                     }
                           }
                         , Cmd.batch
@@ -107,8 +107,7 @@ update msg model =
                             InChat
                                 { args
                                     | messages = messages ++ [ Them txt ]
-
-                                    --, lastSeenTyping = 0
+                                    , lastSeenTyping = Time.millisToPosix 0
                                 }
                       }
                     , scrollToBottom
@@ -169,8 +168,7 @@ update msg model =
                     ( { model | arrow = not arrow, scroll = Moving model.time h }, Cmd.none )
 
                 Moving pre h ->
-                    --if (model.time - pre) > 50 then
-                    if False then
+                    if (Time.posixToMillis model.time - Time.posixToMillis pre) > 50 then
                         let
                             ( newH, arrow ) =
                                 isBottom event
@@ -309,8 +307,6 @@ isBottom =
 
 scrollToBottom : Cmd Msg
 scrollToBottom =
-    --toBottom "messages"
-    --|> Task.attempt CbScrollToBottom
     Browser.Dom.getViewportOf "messages"
         |> Task.andThen
             (\info ->

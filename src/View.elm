@@ -116,7 +116,10 @@ view { status, origin, time, arrow, shareEnabled, copyEnabled } =
 
                 InChat { lastSeenTyping, messages, isLive, input } ->
                     column
-                        [ inFront <| inputBox input isLive ]
+                        [ inFront <| inputBox input isLive
+                        , height fill
+                        , centerX
+                        ]
                         [ column
                             [ spacing 7
                             , padding 7
@@ -198,15 +201,15 @@ inputBox input isLive =
 
 viewTyping : Posix -> Posix -> Element msg
 viewTyping currentTime lastSeenTyping =
-    --when ((currentTime - lastSeenTyping) < 5000) <|
-    --el
-    --[ id "typing"
-    --, Font.size 30
-    --, centerX
-    --, Font.color Color.red
-    --]
-    --<|
-    text "TYPING!"
+    when ((Time.posixToMillis currentTime - Time.posixToMillis lastSeenTyping) < 5000) <|
+        el
+            [ id "typing"
+            , Font.size 30
+            , centerX
+            , Font.color Style.red
+            ]
+        <|
+            text "TYPING!"
 
 
 msgCard : Int -> Message -> Element msg
@@ -220,19 +223,15 @@ msgCard i message =
     case message of
         Self content ->
             paragraph (Style.msgSelf ++ attrs) [ text content ]
-                |> el [ centerX ]
 
         Them content ->
             paragraph (Style.msgThem ++ attrs) [ text content ]
-                |> el [ centerX ]
 
         ChatStart ->
             paragraph (Style.msgSys ++ attrs) [ text "Ready to chat!" ]
-                |> el [ centerX ]
 
         ConnEnd ->
             paragraph (Style.msgSys ++ attrs) [ text "Connection lost!" ]
-                |> el [ centerX ]
 
 
 onScroll : (Json.Encode.Value -> msg) -> Attribute msg
