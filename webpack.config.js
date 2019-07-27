@@ -2,7 +2,7 @@ const CopyWebpackPlugin = require("copy-webpack-plugin");
 const webpack = require("webpack");
 const { resolve } = require("path");
 
-const { NODE_ENV, WS_URL, DEBUG } = process.env;
+const { NODE_ENV, WS_URL, DEBUG, PORT } = process.env;
 
 const publicFolder = resolve("./public");
 
@@ -16,7 +16,8 @@ module.exports = {
     filename: "bundle.js"
   },
   devServer: {
-    contentBase: publicFolder
+    contentBase: publicFolder,
+    port: PORT
   },
   module: {
     rules: [

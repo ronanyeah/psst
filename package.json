@@ -1,10 +1,9 @@
 {
   "name": "psst",
   "scripts": {
-    "start": "node server.js",
     "test": "node test/index.js",
     "client:build": "webpack",
-    "client:watch": "webpack-dev-server --hot"
+    "client:watch": "webpack-dev-server"
   },
   "author": "ronanyeah",
   "license": "GPL-3.0",
@@ -13,18 +12,15 @@
     "url": "git+https://github.com/ronanyeah/psst.git"
   },
   "dependencies": {
-    "clipboard": "^2.0.1",
-    "copy-webpack-plugin": "^4.5.3",
+    "clipboard": "^2.0.4",
+    "copy-webpack-plugin": "^5.0.4",
     "elm-webpack-loader": "^5.0.0",
-    "webpack": "^4.20.2",
-    "webpack-cli": "^3.1.2"
+    "webpack": "^4.38.0",
+    "webpack-cli": "^3.3.6"
   },
   "devDependencies": {
     "elm-hot-webpack-loader": "^1.0.2",
-    "eslint": "^5.6.1",
-    "eslint-plugin-fp": "^2.3.0",
-    "now": "^11.4.6",
-    "webpack-dev-server": "^3.1.9"
+    "webpack-dev-server": "^3.7.2"
   },
   "eslintConfig": {
     "rules": {
