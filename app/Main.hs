@@ -14,12 +14,14 @@ import           Data.Char           (isPunctuation, isSpace)
 import           Data.HashMap.Strict (lookup)
 import           Data.Map.Strict     (Map, assocs, delete, empty, insert,
                                       lookup, member)
+import           Data.Maybe          (fromMaybe)
 import           Data.Monoid         (mappend)
 import           Data.Text           (Text)
 import qualified Data.Text           as T
 import           Data.Text.Encoding  (encodeUtf8)
 import qualified Data.Text.IO        as T
 import           GHC.Generics
+import           System.Environment  (getEnv)
 import           System.RandomString
 
 import qualified Network.WebSockets  as WS
@@ -49,10 +51,14 @@ instance FromJSON Msg where
               _ -> fail "bad lookups"
   parseJSON _ = fail "no object"
 
+parsePort :: String -> Int
+parsePort = read
+
 main :: IO ()
 main = do
   state <- newMVar empty
-  WS.runServer "0.0.0.0" 3000 $ application state
+  port <- parsePort <$> getEnv "PORT"
+  WS.runServer "0.0.0.0" port $ application state
 
 application :: MVar ServerState -> WS.ServerApp
 application state pending = do
